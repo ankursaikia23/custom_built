@@ -1,0 +1,38 @@
+{
+  "Smart Meter All Statements": {
+    "query": "SELECT date , rcg , sts \nFROM smart_meter_2024 \nWHERE rcg > 1\nAND date != \"Jan 1 to 7 2024\"\nUNION ALL \nSELECT date , rcg , sts \nFROM smart_meter_2025 \nWHERE rcg > 1\nUNION ALL \nSELECT date , rcg , sts \nFROM smart_meter_2026 \nWHERE rcg > 1",
+    "db": "COMMON",
+    "files": [
+      "SMART METER - 2026",
+      "SMART METER - 2024",
+      "SMART METER - 2025"
+    ]
+  },
+  "SBI 1844 Missing Statements (2022-25)": {
+    "query": "SELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2022 \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2023_unbound \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL \nSELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2024_unbound \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2025_unbound \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2025 Unbound",
+      "DCB (with statements) - 2024 Unbound",
+      "DCB (with statements) - 2023 Unbound"
+    ]
+  },
+  "SBI 7053 Missing Statements (2022-25)": {
+    "query": "SELECT date , sbi_7053_ib , sbi_7053_d , sbi_7053_c , sbi_7053_fb , sbi_7053_sts \nFROM dcb_with_statements_2022 \nWHERE (sbi_7053_d IS NOT NULL OR sbi_7053_c IS NOT NULL)\nAND sbi_7053_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_7053_ib , sbi_7053_d , sbi_7053_c , sbi_7053_fb , sbi_7053_sts \nFROM dcb_with_statements_2023_unbound \nWHERE (sbi_7053_d IS NOT NULL OR sbi_7053_c IS NOT NULL)\nAND sbi_7053_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL \nSELECT date , sbi_7053_ib , sbi_7053_d , sbi_7053_c , sbi_7053_fb , sbi_7053_sts \nFROM dcb_with_statements_2024_unbound \nWHERE (sbi_7053_d IS NOT NULL OR sbi_7053_c IS NOT NULL)\nAND sbi_7053_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_7053_ib , sbi_7053_d , sbi_7053_c , sbi_7053_fb , sbi_7053_sts \nFROM dcb_with_statements_2025_unbound \nWHERE (sbi_7053_d IS NOT NULL OR sbi_7053_c IS NOT NULL)\nAND sbi_7053_sts IS NULL\nAND date != \"TOTAL:\"",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2025 Unbound",
+      "DCB (with statements) - 2024 Unbound",
+      "DCB (with statements) - 2023 Unbound"
+    ]
+  },
+  "FED 8433 Missing Statements (2022-25)": {
+    "query": "SELECT date , fed_8433_ib , fed_8433_d , fed_8433_c , fed_8433_fb , fed_8433_sts  \nFROM dcb_with_statements_2022 \nWHERE (fed_8433_d IS NOT NULL OR fed_8433_c IS NOT NULL)\nAND fed_8433_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , fed_8433_ib , fed_8433_d , fed_8433_c , fed_8433_fb , fed_8433_sts  \nFROM dcb_with_statements_2023_unbound \nWHERE (fed_8433_d IS NOT NULL OR fed_8433_c IS NOT NULL)\nAND fed_8433_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL \nSELECT date , fed_8433_ib , fed_8433_d , fed_8433_c , fed_8433_fb , fed_8433_sts  \nFROM dcb_with_statements_2024_unbound \nWHERE (fed_8433_d IS NOT NULL OR fed_8433_c IS NOT NULL)\nAND fed_8433_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , fed_8433_ib , fed_8433_d , fed_8433_c , fed_8433_fb , fed_8433_sts  \nFROM dcb_with_statements_2025_unbound \nWHERE (fed_8433_d IS NOT NULL OR fed_8433_c IS NOT NULL)\nAND fed_8433_sts IS NULL\nAND date != \"TOTAL:\"",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2025 Unbound",
+      "DCB (with statements) - 2024 Unbound",
+      "DCB (with statements) - 2023 Unbound"
+    ]
+  }
+}
