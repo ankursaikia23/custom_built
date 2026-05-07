@@ -1,13 +1,4 @@
 {
-  "Smart Meter All Statements": {
-    "query": "SELECT date , rcg , sts \nFROM smart_meter_2024 \nWHERE rcg > 1\nAND date != \"Jan 1 to 7 2024\"\nUNION ALL \nSELECT date , rcg , sts \nFROM smart_meter_2025 \nWHERE rcg > 1\nUNION ALL \nSELECT date , rcg , sts \nFROM smart_meter_2026 \nWHERE rcg > 1",
-    "db": "COMMON",
-    "files": [
-      "SMART METER - 2026",
-      "SMART METER - 2024",
-      "SMART METER - 2025"
-    ]
-  },
   "SBI 1844 Missing Statements (2022-25)": {
     "query": "SELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2022 \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2023_unbound \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL \nSELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2024_unbound \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2025_unbound \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"",
     "db": "COMMON",
@@ -33,6 +24,24 @@
       "DCB (with statements) - 2025 Unbound",
       "DCB (with statements) - 2024 Unbound",
       "DCB (with statements) - 2023 Unbound"
+    ]
+  },
+  "Smart Meter Missing Statements (01-08-2024 : 04-24-2026)": {
+    "query": "SELECT date , rcg , sts \nFROM smart_meter_2024 \nWHERE rcg > 1\nAND sts IS NULL\nAND date != \"Jan 1 to 7 2024\"\nUNION ALL\nSELECT date , rcg , sts \nFROM smart_meter_2025 \nWHERE rcg > 1\nAND sts IS NULL\nUNION ALL \nSELECT date , rcg , sts \nFROM smart_meter_2026 \nWHERE rcg > 1\nAND sts IS NULL",
+    "db": "COMMON",
+    "files": [
+      "SMART METER - 2026",
+      "SMART METER - 2024",
+      "SMART METER - 2025"
+    ]
+  },
+  "Smart Meter Summary (From => 01-08-2024  : To => 04-23-2026)": {
+    "query": "SELECT \n\"From => 01-08-2024 : To => 12-31-2024\" AS Year ,\nROUND (AVG (unit_day), 2) AS Unit_Per_Day ,\nSUM (rcg) AS Total_Recharge ,\nROUND (AVG (rcg), 2) AS Average_Charge_Per_Day\nFROM smart_meter_2024 \nWHERE date != \"Jan 1 to 7 2024\"\nUNION ALL \nSELECT \n\"From => 01-01-2025 : To => 12-31-2025\" AS year ,\nROUND (AVG (unit_day), 2) AS Unit_Per_Day ,\nSUM (rcg) AS Total_Recharge ,\nROUND (AVG (rcg), 2) AS Average_Charge_Per_Day\nFROM smart_meter_2025\nUNION ALL \nSELECT \n\"From => 01-01-2026 : To => 04-23-2026\" AS Year,\nROUND (AVG (unit_day), 2) AS Unit_Per_Day ,\nSUM (rcg) AS Total_Recharge ,\nROUND (AVG (rcg), 2) AS Average_Charge_Per_Day \nFROM smart_meter_2026 \nWHERE date (SUBSTR (date , 7, 4) || '-' || SUBSTR (date, 1, 2) || '-' || SUBSTR (date , 4, 2)) <= date('2026-04-23')",
+    "db": "COMMON",
+    "files": [
+      "SMART METER - 2026",
+      "SMART METER - 2024",
+      "SMART METER - 2025"
     ]
   }
 }
