@@ -35,7 +35,7 @@
       "SMART METER - 2025"
     ]
   },
-  "Smart Meter Summary (From => 01-08-2024  : To => 04-23-2026)": {
+  "Smart Meter Summary (1-8-2024 | 4-23-2026)": {
     "query": "SELECT \n\"From => 01-08-2024 : To => 12-31-2024\" AS Year ,\nROUND (AVG (unit_day), 2) AS Unit_Per_Day ,\nSUM (rcg) AS Total_Recharge ,\nROUND (AVG (rcg), 2) AS Average_Charge_Per_Day\nFROM smart_meter_2024 \nWHERE date != \"Jan 1 to 7 2024\"\nUNION ALL \nSELECT \n\"From => 01-01-2025 : To => 12-31-2025\" AS year ,\nROUND (AVG (unit_day), 2) AS Unit_Per_Day ,\nSUM (rcg) AS Total_Recharge ,\nROUND (AVG (rcg), 2) AS Average_Charge_Per_Day\nFROM smart_meter_2025\nUNION ALL \nSELECT \n\"From => 01-01-2026 : To => 04-23-2026\" AS Year,\nROUND (AVG (unit_day), 2) AS Unit_Per_Day ,\nSUM (rcg) AS Total_Recharge ,\nROUND (AVG (rcg), 2) AS Average_Charge_Per_Day \nFROM smart_meter_2026 \nWHERE date (SUBSTR (date , 7, 4) || '-' || SUBSTR (date, 1, 2) || '-' || SUBSTR (date , 4, 2)) <= date('2026-04-23')",
     "db": "COMMON",
     "files": [

@@ -11,7 +11,6 @@ from PyQt6.QtWidgets import (
     QAbstractItemView, QComboBox, QCompleter, QTextEdit, QMenu, QHeaderView,
     QDialog, QMessageBox, QLineEdit, QListWidget
 )
-
 # from PyQt6.QtWidgets import QPlainTextEdit, QSizePolicy
 from PyQt6.QtCore import Qt, QStringListModel, QEvent
 from PyQt6.QtGui import QTextCursor, QSyntaxHighlighter, QTextCharFormat, QColor, QFont
@@ -89,9 +88,20 @@ class SQLTextEdit(QTextEdit):
         self.setTextCursor(tc)
 
     def extract_table_context(self, text):
-        return list(dict.fromkeys(
-            re.findall(r'\b(?:FROM|JOIN)\s+([a-zA-Z_]\w*)', text, re.IGNORECASE)
-        ))
+        tables = []
+        patterns = [
+            r'\bFROM\s+([a-zA-Z_]\w*)',
+            r'\bJOIN\s+([a-zA-Z_]\w*)',
+            r'\bUPDATE\s+([a-zA-Z_]\w*)',
+            r'\bINTO\s+([a-zA-Z_]\w*)'
+        ]
+        for pattern in patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                clean = str(match).strip().lower()
+                if clean and clean not in tables:
+                    tables.append(clean)
+        return tables
 
     def last_keyword(self, text):
         cursor_pos = self.textCursor().position()
@@ -103,29 +113,63 @@ class SQLTextEdit(QTextEdit):
         return None
 
     def keyPressEvent(self, event):
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            super().keyPressEvent(event)
-            return    
+        if (
+            event.modifiers() &
+            Qt.KeyboardModifier.ControlModifier
+        ):
+            QTextEdit.keyPressEvent(self, event)
+            return
         if self.completer and self.completer.popup().isVisible():
-            if event.key() in (Qt.Key.Key_Enter, Qt.Key.Key_Return):
+            if event.key() in (
+                Qt.Key.Key_Enter,
+                Qt.Key.Key_Return
+            ):
                 index = self.completer.popup().currentIndex()
                 if index.isValid():
                     self.insertCompletion(index.data())
                 self.completer.popup().hide()
                 return
-            if event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
-                self.completer.popup().setFocus()
+            if event.key() in (
+                Qt.Key.Key_Up,
+                Qt.Key.Key_Down
+            ):
+                self.completer.popup().keyPressEvent(event)
                 return
-        if event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+        if event.key() in (
+            Qt.Key.Key_Up,
+            Qt.Key.Key_Down
+        ):
             cursor = self.textCursor()
             doc = self.document()
             current_block = cursor.block()
-            if event.key() == Qt.Key.Key_Up and current_block == doc.firstBlock():
-                cursor.movePosition(QTextCursor.MoveOperation.Start)
+            if (
+                event.key() == Qt.Key.Key_Up and
+                current_block == doc.firstBlock()
+            ):
+                if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                    cursor.movePosition(
+                        QTextCursor.MoveOperation.Start,
+                        QTextCursor.MoveMode.KeepAnchor
+                    )
+                else:
+                    cursor.movePosition(
+                        QTextCursor.MoveOperation.Start
+                    )
                 self.setTextCursor(cursor)
                 return
-            if event.key() == Qt.Key.Key_Down and current_block == doc.lastBlock():
-                cursor.movePosition(QTextCursor.MoveOperation.End)
+            if (
+                event.key() == Qt.Key.Key_Down and
+                current_block == doc.lastBlock()
+            ):
+                if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                    cursor.movePosition(
+                        QTextCursor.MoveOperation.End,
+                        QTextCursor.MoveMode.KeepAnchor
+                    )
+                else:
+                    cursor.movePosition(
+                        QTextCursor.MoveOperation.End
+                    )
                 self.setTextCursor(cursor)
                 return
         if event.key() == Qt.Key.Key_Tab:
@@ -134,34 +178,49 @@ class SQLTextEdit(QTextEdit):
                 return
             tc = self.textCursor()
             tc.select(QTextCursor.SelectionType.WordUnderCursor)
-            prefix = tc.selectedText()
-            if not prefix:
-                self.insertPlainText("    ")
-                return
+            prefix = tc.selectedText().strip()
             full_text = self.toPlainText()
             context_tables = self.extract_table_context(full_text)
-            last_kw = self.last_keyword(full_text)    
-            suggestions = set(self.app.get_keywords())
+            suggestions = set()
+            suggestions.update(self.app.get_keywords())
             suggestions.update(self.app.tables.keys())
-            if last_kw in ["FROM", "JOIN", "INTO", "UPDATE", "TABLE", "DROP"]:
-                suggestions.update(self.app.tables.keys())
-            if last_kw in ["WHERE", "SET", "ORDER", "GROUP", "HAVING", "ON"]:
+            for table_name, df in self.app.tables.items():
+                if df is not None and hasattr(df, "columns"):
+                    suggestions.update([
+                        str(col).strip().lower()
+                        for col in df.columns.tolist()
+                    ])
+            if context_tables:
                 for table in context_tables:
                     df = self.app.tables.get(table)
                     if df is not None and hasattr(df, "columns"):
-                        suggestions.update(df.columns.tolist())
-            for table in context_tables:
-                df = self.app.tables.get(table)
-                if df is not None and hasattr(df, "columns"):
-                    suggestions.update(df.columns.tolist())
-            self.completer_model.setStringList(sorted(suggestions))
+                        suggestions.update([
+                            str(col).strip().lower()
+                            for col in df.columns.tolist()
+                        ])
+            filtered = sorted([
+                s for s in suggestions
+                if str(s).strip() and (
+                    not prefix or
+                    str(s).lower().startswith(prefix.lower())
+                )
+            ])
+            self.completer_model.setStringList(filtered)
             self.completer.setCompletionPrefix(prefix)
-            if suggestions:
-                cr = self.cursorRect()
-                cr.setWidth(self.completer.popup().sizeHintForColumn(0) + 20)
-                self.completer.complete(cr)
+            popup = self.completer.popup()
+            popup_width = (
+                popup.sizeHintForColumn(0) +
+                popup.verticalScrollBar().sizeHint().width() +
+                20
+            )
+            cr = self.cursorRect()
+            cr.setWidth(max(150, popup_width))
+            self.completer.complete(cr)
             return
-        if event.key() == Qt.Key.Key_Return:
+        if event.key() in (
+            Qt.Key.Key_Return,
+            Qt.Key.Key_Enter
+        ):
             tc = self.textCursor()
             tc.select(QTextCursor.SelectionType.LineUnderCursor)
             line = tc.selectedText()
@@ -182,8 +241,8 @@ class CSVSQLApp(QMainWindow):
         self.tables = {}
         self.name_map = {}
         self.saved_queries = {}
+        self.custom_queries_window = None
         self.queries_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saved_queries.json")
-        self.active_query_name = None
         base_dir = os.path.dirname(os.path.abspath(__file__))
         json_path = os.path.join(base_dir, "sql_keywords.json")
         try:
@@ -304,9 +363,21 @@ class CSVSQLApp(QMainWindow):
         editor_layout = QVBoxLayout(editor_container)
         editor_layout.setContentsMargins(0, 0, 0, 0)        
         top_editor_bar = QHBoxLayout()
-        top_editor_bar.setContentsMargins(0, 0, 0, 0)
+        top_editor_bar.setContentsMargins(0, 0, 0, 0)        
+        self.query_name_tag = QLabel("Untitled")
+        self.query_name_tag.setStyleSheet("""
+            QLabel {
+                background-color: #95a5a6;
+                color: white;
+                padding: 4px 10px;
+                border-radius: 8px;
+                font-weight: bold;
+            }
+        """)
         save_query_btn = QPushButton("Save Query")
         save_query_btn.clicked.connect(self.save_query)
+        top_editor_bar.addWidget(self.query_name_tag, alignment=Qt.AlignmentFlag.AlignLeft)
+        top_editor_bar.addStretch()
         top_editor_bar.addWidget(save_query_btn, alignment=Qt.AlignmentFlag.AlignRight)
         self.query_box.setMinimumWidth(700)
         editor_layout.addLayout(top_editor_bar)
@@ -360,30 +431,56 @@ class CSVSQLApp(QMainWindow):
         self.clear_btn.clicked.connect(self.clear_all)
         self.help_btn.clicked.connect(self.show_help)
         self.query_box.setFocus()
+        self.current_query_name = None
+        self.query_dirty = False
+        self.query_box.textChanged.connect(self.track_query_changes)
 
     def load_csv(self):
-        files, _ = QFileDialog.getOpenFileNames(self, "Select CSV files", "", "CSV Files (*.csv)")
-        if files:
-            try:
-                cursor = self.sqlite_conn.cursor()
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-                tables = cursor.fetchall()
-                for (table_name,) in tables:
-                    cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')
-                self.sqlite_conn.commit()
-            except:
-                pass    
-            self.tables.clear()
-            self.name_map.clear()
-            self.table_selector.clear()
-            self.table_selector.addItem("Select Table")
-            self.table_selector.setEnabled(False)
-            self.source_info.clear()
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Select CSV files",
+            "",
+            "CSV Files (*.csv);;All Files ()",
+            options=QFileDialog.Option.DontUseNativeDialog
+        )
+        files = [
+            f for f in files
+            if f.lower().endswith(".csv")
+        ]
+        if not files:
+            return
+        try:
+            cursor = self.sqlite_conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = cursor.fetchall()    
+            for (table_name,) in tables:
+                cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+            self.sqlite_conn.commit()
+        except Exception:
+            pass
+        self.tables.clear()
+        self.name_map.clear()    
+        self.table_selector.clear()
+        self.table_selector.addItem("Select Table")
+        self.table_selector.setEnabled(False)
+        self.source_info.clear()
         for file in files:
             try:
-                df = pd.read_csv(file, low_memory=False)
-                original_table_name = os.path.splitext(os.path.basename(file))[0]
-                clean_table_name = re.sub(r'\W+', '_', original_table_name).lower().strip('_')
+                try:
+                    df = pd.read_csv(file, low_memory=False)
+                except UnicodeDecodeError:
+                    try:
+                        df = pd.read_csv(file, low_memory=False, encoding="utf-8-sig")
+                    except UnicodeDecodeError:
+                        df = pd.read_csv(file, low_memory=False, encoding="latin1")
+                original_table_name = os.path.splitext(
+                    os.path.basename(file)
+                )[0]
+                clean_table_name = re.sub(
+                    r'\W+',
+                    '_',
+                    original_table_name
+                ).lower().strip('_')
                 base_name = clean_table_name
                 counter = 1
                 while clean_table_name in self.tables:
@@ -393,7 +490,11 @@ class CSVSQLApp(QMainWindow):
                 seen = {}
                 clean_columns = []
                 for col in original_columns:
-                    clean = re.sub(r'\W+', '_', str(col)).lower().strip('_')
+                    clean = re.sub(
+                        r'\W+',
+                        '_',
+                        str(col)
+                    ).lower().strip('_')
                     if not clean:
                         clean = "col"
                     if clean in seen:
@@ -401,9 +502,16 @@ class CSVSQLApp(QMainWindow):
                         clean = f"{clean}_{seen[clean]}"
                     else:
                         seen[clean] = 0
+    
                     clean_columns.append(clean)
                 df.columns = clean_columns
-                df.to_sql(clean_table_name, self.sqlite_conn, if_exists="replace", index=False, method="multi")
+                df.to_sql(
+                    clean_table_name,
+                    self.sqlite_conn,
+                    if_exists="replace",
+                    index=False,
+                    method="multi"
+                )
                 self.tables[clean_table_name] = df
                 self.table_selector.setEnabled(True)
                 display_name = original_table_name
@@ -417,7 +525,9 @@ class CSVSQLApp(QMainWindow):
                     "reverse_columns": dict(zip(clean_columns, original_columns))
                 }
                 self.table_selector.addItem(display_name)
-                self.source_info.addItem(f"{display_name} | Rows: {len(df)}")
+                self.source_info.addItem(
+                    f"{display_name} | Rows: {len(df)}"
+                )
                 self.source_info.setItemData(
                     self.source_info.count() - 1,
                     display_name,
@@ -430,6 +540,7 @@ class CSVSQLApp(QMainWindow):
         else:
             self.table_selector.setCurrentIndex(0)
         self.update_table_view()
+        self.set_active_query(None, saved=True)
         
     def get_keywords(self):
         mode = self.db_mode_selector.currentText()
@@ -448,9 +559,12 @@ class CSVSQLApp(QMainWindow):
         try:
             if self.sqlite_conn:
                 self.sqlite_conn.close()
-        except:
+        except Exception:
             pass
-        self.sqlite_conn = sqlite3.connect(":memory:", check_same_thread=False)    
+        self.sqlite_conn = sqlite3.connect(
+            ":memory:",
+            check_same_thread=False
+        )
         self.tables.clear()
         self.name_map.clear()
         self.table_selector.clear()
@@ -461,7 +575,11 @@ class CSVSQLApp(QMainWindow):
         self.csv_info.setColumnCount(0)
         self.source_info.clear()
         self.source_info.addItem("Source: - | Rows: -")
-        self.source_info.setItemData(0, "No source", Qt.ItemDataRole.ToolTipRole)
+        self.source_info.setItemData(
+            0,
+            "No source",
+            Qt.ItemDataRole.ToolTipRole
+        )
         self.source_info.setToolTip("No source")
         self.db_mode_selector.setCurrentIndex(0)
         self.query_status.clear()
@@ -495,9 +613,14 @@ class CSVSQLApp(QMainWindow):
         if self.result_table.rowCount() == 0:
             self.query_status.setText("No data to export")
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Save PDF", "", "PDF Files (*.pdf)")
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save PDF",
+            "",
+            "PDF Files (*.pdf)"
+        )
         if not path:
-            return    
+            return
         rows = self.result_table.rowCount()
         cols = self.result_table.columnCount()
         headers = []
@@ -505,22 +628,46 @@ class CSVSQLApp(QMainWindow):
             item = self.result_table.horizontalHeaderItem(i)
             headers.append(item.text() if item else f"col_{i}")
         data = [headers]
+        max_cell_length = 200
         for i in range(rows):
             row = []
             for j in range(cols):
                 item = self.result_table.item(i, j)
-                row.append(item.text() if item else "")
+                value = item.text() if item else ""
+                value = str(value)
+                if len(value) > max_cell_length:
+                    value = value[:max_cell_length] + "..."
+                row.append(value)
             data.append(row)
-        pdf = SimpleDocTemplate(path)
-        max_width = 500
-        col_width = max_width / max(cols, 1)
-        col_widths = [col_width] * cols
-        table = Table(data, colWidths=col_widths)    
-        table.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-        ]))
-        pdf.build([table])
+        try:
+            pdf = SimpleDocTemplate(
+                path,
+                rightMargin=20,
+                leftMargin=20,
+                topMargin=20,
+                bottomMargin=20
+            )
+            available_width = 540
+            col_width = max(60, available_width / max(cols, 1))
+            col_widths = [col_width] * cols
+            table = Table(
+                data,
+                colWidths=col_widths,
+                repeatRows=1
+            )
+            table.setStyle(TableStyle([
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+                ("VALIGN", (0, 0), (-1, -1), "TOP")
+            ]))
+            pdf.build([table])
+            self.query_status.setText("PDF exported successfully")
+        except Exception as e:
+            self.query_status.setText(f"Error:\n{str(e)}")
         
     def save_query(self):
         text = self.query_box.toPlainText().strip()
@@ -528,63 +675,118 @@ class CSVSQLApp(QMainWindow):
             return
         dialog = QDialog(self)
         dialog.setWindowTitle("Save Query")
-        layout = QVBoxLayout(dialog)    
-        name_input = QLineEdit()
-        name_input.setPlaceholderText("Enter query name")
-        dropdown = QComboBox()
-        dropdown.setEditable(False)
-        dropdown.addItems(list(self.saved_queries.keys()))
-        layout.addWidget(QLabel("Query Name"))
-        layout.addWidget(name_input)
-        layout.addWidget(QLabel("Or select existing to overwrite"))
-        layout.addWidget(dropdown)
+        dialog.resize(420, 220)
+        layout = QVBoxLayout(dialog)
+        mode_dropdown = QComboBox()
+        mode_dropdown.addItems(["New Query", "Overwrite Existing Query"])
+        query_name_input = QLineEdit()
+        query_name_input.setPlaceholderText("Enter query name")
+        existing_dropdown = QComboBox()
+        existing_dropdown.addItems(sorted(self.saved_queries.keys()))
+        existing_dropdown.setVisible(False)
+        rename_input = QLineEdit()
+        rename_input.setPlaceholderText("Rename query (optional)")
+        rename_input.setVisible(False)
+        layout.addWidget(mode_dropdown)
+        layout.addWidget(query_name_input)
+        layout.addWidget(existing_dropdown)
+        layout.addWidget(rename_input)
         btn_layout = QHBoxLayout()
-        ok_btn = QPushButton("Save")
+        save_btn = QPushButton("Save")
         cancel_btn = QPushButton("Cancel")
-        btn_layout.addWidget(ok_btn)
+        btn_layout.addStretch()
+        btn_layout.addWidget(save_btn)
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
-    
-        def on_select_existing():
-            name_input.setText(dropdown.currentText())
-        dropdown.currentIndexChanged.connect(on_select_existing)
-        selected_name = {"value": None}
-    
-        def accept():
-            name = name_input.text().strip()
-            if not name:
-                return
-            selected_name["value"] = name
+        
+        def update_mode():
+            mode = mode_dropdown.currentText()
+            if mode == "New Query":
+                query_name_input.setVisible(True)
+                existing_dropdown.setVisible(False)
+                rename_input.setVisible(False)
+            else:
+                query_name_input.setVisible(False)
+                existing_dropdown.setVisible(True)
+                rename_input.setVisible(True)
+        
+        mode_dropdown.currentIndexChanged.connect(update_mode)
+        update_mode()
+        
+        def do_save():
+            mode = mode_dropdown.currentText()
+            if mode == "New Query":
+                final_name = " ".join(query_name_input.text().strip().split())
+                if not final_name:
+                    QMessageBox.warning(
+                        self,
+                        "Invalid Name",
+                        "Query name cannot be empty"
+                    )
+                    return
+                if final_name in self.saved_queries:
+                    reply = QMessageBox.question(
+                        self,
+                        "Overwrite Query",
+                        f"'{final_name}' already exists. Do you want to overwrite it?",
+                        QMessageBox.StandardButton.Ok |
+                        QMessageBox.StandardButton.Cancel,
+                        QMessageBox.StandardButton.Cancel
+                    )
+                    if reply != QMessageBox.StandardButton.Ok:
+                        return
+            else:
+                selected_query = existing_dropdown.currentText().strip()
+                rename_value = " ".join(rename_input.text().strip().split())
+                final_name = rename_value if rename_value else selected_query
+                if not selected_query:
+                    QMessageBox.warning(
+                        self,
+                        "Invalid Selection",
+                        "Please select a query to overwrite"
+                    )
+                    return
+                if (
+                    final_name != selected_query and
+                    final_name in self.saved_queries
+                ):
+                    reply = QMessageBox.question(
+                        self,
+                        "Overwrite Query",
+                        f"'{final_name}' already exists. Do you want to overwrite it?",
+                        QMessageBox.StandardButton.Ok |
+                        QMessageBox.StandardButton.Cancel,
+                        QMessageBox.StandardButton.Cancel
+                    )
+                    if reply != QMessageBox.StandardButton.Ok:
+                        return
+                if final_name != selected_query:
+                    self.saved_queries.pop(selected_query, None)
+            current_db = self.db_mode_selector.currentText()
+            files = list(self.name_map.keys())
+            self.saved_queries[final_name] = {
+                "query": text,
+                "db": current_db,
+                "files": files
+            }
+            with open(self.queries_path, "w") as f:
+                json.dump(self.saved_queries, f, indent=2)
+            self.set_active_query(final_name, saved=True)
             dialog.accept()
-        ok_btn.clicked.connect(accept)
+        
+        save_btn.clicked.connect(do_save)
         cancel_btn.clicked.connect(dialog.reject)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        name = selected_name["value"]
-        if not name:
-            return    
-        if name in self.saved_queries:
-            reply = QMessageBox.question(
-                self,
-                "Overwrite Query",
-                f"'{name}' already exists. Do you want to overwrite it?",
-                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
-                QMessageBox.StandardButton.Cancel
-            )
-            if reply != QMessageBox.StandardButton.Ok:
-                return
-        current_db = self.db_mode_selector.currentText()
-        files = list(self.name_map.keys())    
-        self.saved_queries[name] = {
-            "query": text,
-            "db": current_db,
-            "files": files
-        }
-        with open(self.queries_path, "w") as f:
-            json.dump(self.saved_queries, f, indent=2)
+        dialog.exec()
             
     def show_queries_popup(self):
+        if self.custom_queries_window:
+            if self.custom_queries_window.isMinimized():
+                self.custom_queries_window.showNormal()
+            self.custom_queries_window.raise_()
+            self.custom_queries_window.activateWindow()
+            return
         window = QMainWindow(self)
+        self.custom_queries_window = window    
         window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         window.setWindowTitle("Custom Queries")
         window.resize(1000, 700)
@@ -606,31 +808,85 @@ class CSVSQLApp(QMainWindow):
         notification_box.setFixedHeight(40)
         table = QTableWidget()
         table.setColumnCount(6)
-        table.setHorizontalHeaderLabels(["Query", "DB", "Files", "Load", "Edit", "Delete"])
+        table.setHorizontalHeaderLabels([
+            "Query",
+            "DB",
+            "Files",
+            "Load",
+            "Edit",
+            "Delete"
+        ])
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectRows
+        )
         header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(
+            0,
+            QHeaderView.ResizeMode.Stretch
+        )
+        header.setSectionResizeMode(
+            1,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+        header.setSectionResizeMode(
+            2,
+            QHeaderView.ResizeMode.Stretch
+        )
+        header.setSectionResizeMode(
+            3,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+        header.setSectionResizeMode(
+            4,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+        header.setSectionResizeMode(
+            5,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
         left_container.addWidget(notification_box, 1)
         left_container.addWidget(table, 9)
         editor_widget = QWidget()
         editor_layout = QVBoxLayout(editor_widget)
         name_input = QLineEdit()
+        name_input.setMinimumWidth(250)
+        name_input.setSizePolicy(
+            name_input.sizePolicy().horizontalPolicy(),
+            name_input.sizePolicy().verticalPolicy()
+        )
         query_input = QTextEdit()
         self.custom_query_input = query_input
-        query_input.installEventFilter(self)
+        query_input.installEventFilter(self)    
         btn_row = QHBoxLayout()
         save_btn = QPushButton("Save")
+        clear_btn = QPushButton("Clear")
         cancel_btn = QPushButton("Close")
         btn_row.addStretch()
         btn_row.addWidget(save_btn)
+        btn_row.addWidget(clear_btn)
         btn_row.addWidget(cancel_btn)
-        editor_layout.addWidget(QLabel("Query Name"))
+        name_row = QHBoxLayout()
+        query_name_label = QLabel("No Query File Loaded")
+        query_name_label.setWordWrap(False)
+        query_name_label.setMinimumWidth(150)
+        query_name_label.setMaximumWidth(350)
+        query_name_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        query_name_label.setStyleSheet("""
+            QLabel {
+                background-color: #95a5a6;
+                color: white;
+                padding: 6px 10px;
+                border-radius: 8px;
+                font-weight: bold;
+            }
+        """)
+        name_row.addWidget(QLabel("Query Name"))
+        name_row.addStretch()
+        name_row.addWidget(query_name_label)
+        editor_layout.addLayout(name_row)
         editor_layout.addWidget(name_input)
         editor_layout.addWidget(QLabel("SQL Query"))
         editor_layout.addWidget(query_input)
@@ -643,6 +899,16 @@ class CSVSQLApp(QMainWindow):
         current_edit = {"name": None}
         unsaved = {"flag": False}
     
+        def update_editor_query_tag():
+            if current_edit["name"]:
+                name = current_edit["name"]
+            else:
+                name = "No Query File Loaded"
+            if unsaved["flag"]:
+                name += " *"
+            query_name_label.setText(name)
+            query_name_label.setToolTip(name)
+    
         def notify(msg):
             notification_box.clear()
             notification_box.addItem(msg)
@@ -652,31 +918,41 @@ class CSVSQLApp(QMainWindow):
                 reply = QMessageBox.question(
                     window,
                     "Unsaved Changes",
-                    "Save before exiting?",
-                    QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
-                    QMessageBox.StandardButton.Ok
+                    "Exit without saving?",
+                    QMessageBox.StandardButton.Ok |
+                    QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Cancel
                 )
-                if reply == QMessageBox.StandardButton.Ok:
-                    save_edit()
-                return True
+                if reply != QMessageBox.StandardButton.Ok:
+                    return True
             return False
     
         def load_into_editor(name):
             if check_unsaved():
-                pass
+                return
             data = self.saved_queries.get(name, {})
-            query = data.get("query", "") if isinstance(data, dict) else data    
+            query = (
+                data.get("query", "")
+                if isinstance(data, dict)
+                else ""
+            )
             name_input.setText(name)
             query_input.setPlainText(query)
             current_edit["name"] = name
             unsaved["flag"] = False
+            update_editor_query_tag()
     
         def load_to_main(name):
             if check_unsaved():
-                pass
-            data = self.saved_queries.get(name, {})
-            query = data.get("query", "") if isinstance(data, dict) else data
+                return
+            data = self.saved_queries.get(name, {})    
+            query = (
+                data.get("query", "")
+                if isinstance(data, dict)
+                else ""
+            )
             self.query_box.setPlainText(query)
+            self.set_active_query(name, saved=True)
             notify(f"{name} loaded")
     
         def delete_query_inline(name):
@@ -684,9 +960,10 @@ class CSVSQLApp(QMainWindow):
                 window,
                 "Delete",
                 f"Delete '{name}'?",
-                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Ok |
+                QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Cancel
-            )    
+            )
             if reply == QMessageBox.StandardButton.Ok:
                 if name in self.saved_queries:
                     del self.saved_queries[name]
@@ -695,15 +972,26 @@ class CSVSQLApp(QMainWindow):
                     query_input.clear()
                     current_edit["name"] = None
                     unsaved["flag"] = False
+                    update_editor_query_tag()
                 with open(self.queries_path, "w") as f:
                     json.dump(self.saved_queries, f, indent=2)
                 refresh_table()
     
         def refresh_table():
-            table.setRowCount(len(self.saved_queries))    
-            for row, (name, data) in enumerate(self.saved_queries.items()):
-                db_val = data.get("db", "") if isinstance(data, dict) else ""
-                files_val = data.get("files", []) if isinstance(data, dict) else []
+            table.setRowCount(len(self.saved_queries))
+            for row, (name, data) in enumerate(
+                self.saved_queries.items()
+            ):
+                db_val = (
+                    data.get("db", "")
+                    if isinstance(data, dict)
+                    else ""
+                )
+                files_val = (
+                    data.get("files", [])
+                    if isinstance(data, dict)
+                    else []
+                )
                 name_item = QTableWidgetItem(name)
                 name_item.setToolTip(name)
                 db_item = QTableWidgetItem(db_val)
@@ -714,50 +1002,142 @@ class CSVSQLApp(QMainWindow):
                 combo.addItems(files_val)
                 combo.setToolTip("\n".join(files_val))
                 for i, f in enumerate(files_val):
-                    combo.setItemData(i, f, Qt.ItemDataRole.ToolTipRole)
+                    combo.setItemData(
+                        i,
+                        f,
+                        Qt.ItemDataRole.ToolTipRole
+                    )
                 table.setCellWidget(row, 2, combo)
-                load_btn = QPushButton("Load")
-                edit_btn = QPushButton("Edit")
-                delete_btn = QPushButton("Delete")
-                load_btn.clicked.connect(lambda _, n=name: load_to_main(n))
-                edit_btn.clicked.connect(lambda _, n=name: load_into_editor(n))
-                delete_btn.clicked.connect(lambda _, n=name: delete_query_inline(n))
-                table.setCellWidget(row, 3, load_btn)
-                table.setCellWidget(row, 4, edit_btn)
-                table.setCellWidget(row, 5, delete_btn)
+                load_button = QPushButton("Load")
+                edit_button = QPushButton("Edit")
+                delete_button = QPushButton("Delete")
+                load_button.clicked.connect(
+                    lambda _, n=name: load_to_main(n)
+                )
+                edit_button.clicked.connect(
+                    lambda _, n=name: load_into_editor(n)
+                )
+                delete_button.clicked.connect(
+                    lambda _, n=name: delete_query_inline(n)
+                )
+                table.setCellWidget(row, 3, load_button)
+                table.setCellWidget(row, 4, edit_button)
+                table.setCellWidget(row, 5, delete_button)
     
         def save_edit():
             old_name = current_edit["name"]
             if not old_name:
                 return
-            new_name = name_input.text().strip()
-            new_query = query_input.toPlainText().strip()    
+            new_name = " ".join(
+                name_input.text().strip().split()
+            )  
+            new_query = query_input.toPlainText().strip()
             if not new_name or not new_query:
                 return
-            data = self.saved_queries.get(old_name, {})
+            data = self.saved_queries.get(old_name, {})    
             if isinstance(data, dict):
                 updated = data
                 updated["query"] = new_query
             else:
-                updated = {"query": new_query, "db": "", "files": []}
+                updated = {
+                    "query": new_query,
+                    "db": "",
+                    "files": []
+                }
             if new_name != old_name:
                 self.saved_queries.pop(old_name, None)
             self.saved_queries[new_name] = updated
             with open(self.queries_path, "w") as f:
                 json.dump(self.saved_queries, f, indent=2)
+            if self.current_query_name == old_name:
+                self.set_active_query(new_name, saved=True)
             notify(f"{new_name} edited")
             current_edit["name"] = new_name
             unsaved["flag"] = False
+            update_editor_query_tag()
             refresh_table()
     
         def mark_unsaved():
-            if current_edit["name"]:
-                unsaved["flag"] = True
+            current_name = current_edit["name"]
+            current_query = query_input.toPlainText().strip()
+            current_title = " ".join(name_input.text().strip().split())
+            if not current_name:
+                if current_query or current_title:
+                    unsaved["flag"] = True
+                else:
+                    unsaved["flag"] = False
+            else:
+                saved_data = self.saved_queries.get(current_name, {})
+                saved_query = (
+                    saved_data.get("query", "").strip()
+                    if isinstance(saved_data, dict)
+                    else ""
+                )
+                saved_name = current_name.strip()
+                unsaved["flag"] = (
+                    current_query != saved_query or
+                    current_title != saved_name
+                )
+            update_editor_query_tag()
+            
+        name_input.textChanged.connect(mark_unsaved)
     
-        query_input.textChanged.connect(mark_unsaved)
+        def clear_editor():
+            if unsaved["flag"]:
+                reply = QMessageBox.question(
+                    window,
+                    "Unsaved Changes",
+                    "Clear without saving?",
+                    QMessageBox.StandardButton.Ok |
+                    QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Cancel
+                )
+                if reply != QMessageBox.StandardButton.Ok:
+                    return
+            name_input.clear()
+            query_input.clear()
+            current_edit["name"] = None
+            unsaved["flag"] = False
+            update_editor_query_tag()
+    
+        def attempt_close():
+            if check_unsaved():
+                return
+            window.close()
+    
         save_btn.clicked.connect(save_edit)
-        cancel_btn.clicked.connect(window.close)
+        clear_btn.clicked.connect(clear_editor)
+        cancel_btn.clicked.connect(attempt_close)
         refresh_table()
+    
+        def custom_close_event(event):
+            if check_unsaved():
+                event.ignore()
+                return
+            self.custom_queries_window = None    
+            event.accept()
+    
+        window.closeEvent = custom_close_event
+        
+        def resize_event(event):
+            update_editor_query_tag()
+            QMainWindow.resizeEvent(window, event)
+        
+        window.resizeEvent = resize_event
+    
+        def popup_keypress(event):
+            if (
+                event.modifiers() ==
+                Qt.KeyboardModifier.ControlModifier and
+                event.key() == Qt.Key.Key_S
+            ):
+                if current_edit["name"]:
+                    save_edit()
+                return
+            QMainWindow.keyPressEvent(window, event)
+            
+        query_input.textChanged.connect(mark_unsaved)
+        window.keyPressEvent = popup_keypress
         window.show()
         
     def format_name(self, name):
@@ -769,54 +1149,83 @@ class CSVSQLApp(QMainWindow):
         index = self.source_info.currentIndex()
         if self.source_info.count() == 0 or index < 0:
             self.source_info.setToolTip("")
-            return    
-        tooltip = self.source_info.itemData(index, Qt.ItemDataRole.ToolTipRole)
-        self.source_info.setToolTip(tooltip if tooltip else "")
+            return
+        tooltip = self.source_info.itemData(
+            index,
+            Qt.ItemDataRole.ToolTipRole
+        )
+        if tooltip and str(tooltip).strip():
+            self.source_info.setToolTip(str(tooltip))
+        else:
+            self.source_info.setToolTip("No source")
                 
     def populate_result_table(self, rows, headers):
+        self.result_table.setUpdatesEnabled(False)
+        self.result_table.clearContents()
         self.result_table.setRowCount(len(rows))
         self.result_table.setColumnCount(len(headers))
         self.result_table.setHorizontalHeaderLabels(headers)
         for i, row in enumerate(rows or []):
             for j in range(len(headers)):
                 val = row[j] if j < len(row) and row[j] is not None else ""
-                self.result_table.setItem(i, j, QTableWidgetItem(str(val)))    
+                if pd.isna(val):
+                    val = ""
+                self.result_table.setItem(
+                    i,
+                    j,
+                    QTableWidgetItem(str(val))
+                )
         self.result_table.resizeColumnsToContents()
+        self.result_table.setUpdatesEnabled(True)
 
     def run_query(self):
         query = self.query_box.toPlainText().strip()
-        tables_in_query = re.findall(r'\b(?:FROM|JOIN|UPDATE|INTO)\s+([a-zA-Z_][\w]*)', query, re.IGNORECASE)
+        if not query:
+            self.query_status.setText("No query to execute")
+            return
+        tables_in_query = re.findall(
+            r'\b(?:FROM|JOIN|UPDATE|INTO)\s+["`\[]?([a-zA-Z_][\w]*)["`\]]?',
+            query,
+            re.IGNORECASE
+        )
+        cursor = None
         try:
             mode = self.db_mode_selector.currentText()
             conn = self.sqlite_conn
             if mode == "PostgreSQL" and self.pg_conn:
                 conn = self.pg_conn
             elif mode == "MySQL" and self.mysql_conn:
-                conn = self.mysql_conn    
+                conn = self.mysql_conn
             if conn is None:
                 self.query_status.setText("Not connected to selected database")
                 return
             cursor = conn.cursor()
             cursor.execute(query)
-            if cursor.description:
+            has_result = cursor.description is not None
+            if has_result:
                 headers = [desc[0] for desc in cursor.description]
-                rows = cursor.fetchall() or []
-                limited_rows = rows[:1000]
-                self.populate_result_table(limited_rows, headers)
-                self.result_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-                self.result_info.setText(
-                    f"Rows affected: {len(limited_rows)} | Columns: {len(headers)}"
+                rows = cursor.fetchmany(1000)
+                self.populate_result_table(rows, headers)
+                self.result_table.horizontalHeader().setSectionResizeMode(
+                    QHeaderView.ResizeMode.Interactive
                 )
-                msg = f"Query executed successfully\nRows returned: {len(limited_rows)}"
-                if len(rows) > 1000:
+                self.result_info.setText(
+                    f"Rows affected: {len(rows)} | Columns: {len(headers)}"
+                )
+                msg = f"Query executed successfully\nRows returned: {len(rows)}"
+                if len(rows) >= 1000:
                     msg += "\nNote: Results limited to 1000 rows"
                 self.query_status.setText(msg)
             else:
                 conn.commit()
                 affected = cursor.rowcount if cursor.rowcount != -1 else 0
                 self.reset_result_table()
-                self.result_info.setText(f"Rows affected: {affected} | Columns: 0")
-                self.query_status.setText(f"Query executed\nRows affected: {affected}")
+                self.result_info.setText(
+                    f"Rows affected: {affected} | Columns: 0"
+                )
+                self.query_status.setText(
+                    f"Query executed\nRows affected: {affected}"
+                )
             self.source_info.blockSignals(True)
             self.source_info.clear()
             self.source_info.blockSignals(False)
@@ -826,25 +1235,49 @@ class CSVSQLApp(QMainWindow):
                     if table in self.tables:
                         max_rows = len(self.tables[table])
                         display_name = next(
-                            (k for k, v in self.name_map.items() if v["clean"] == table),
+                            (
+                                k for k, v in self.name_map.items()
+                                if v["clean"] == table
+                            ),
                             table
                         )
                         short_name = self.format_name(display_name)
-                        self.source_info.addItem(f"{short_name} | Rows: {max_rows}")
+                        self.source_info.addItem(
+                            f"{short_name} | Rows: {max_rows}"
+                        )
                         self.source_info.setItemData(
                             self.source_info.count() - 1,
                             display_name,
                             Qt.ItemDataRole.ToolTipRole
                         )
                         full_names.append(display_name)
-                self.source_info.setToolTip("\n".join(full_names))
+                if full_names:
+                    self.source_info.setToolTip("\n".join(full_names))
+                else:
+                    self.source_info.addItem("Source: - | Rows: -")
+                    self.source_info.setItemData(
+                        0,
+                        "No source",
+                        Qt.ItemDataRole.ToolTipRole
+                    )
+                    self.source_info.setToolTip("No source")
             else:
                 self.source_info.addItem("Source: - | Rows: -")
-                self.source_info.setItemData(0, "No source", Qt.ItemDataRole.ToolTipRole)
+                self.source_info.setItemData(
+                    0,
+                    "No source",
+                    Qt.ItemDataRole.ToolTipRole
+                )
                 self.source_info.setToolTip("No source")
             self.update_source_tooltip()
         except Exception as e:
             self.query_status.setText(f"Error:\n{str(e)}")
+        finally:
+            try:
+                if cursor:
+                    cursor.close()
+            except Exception:
+                pass
             
     def reset_result_table(self):
         self.result_table.setRowCount(0)
@@ -853,11 +1286,16 @@ class CSVSQLApp(QMainWindow):
 
     def clear_all(self):
         self.query_box.clear()
+        self.set_active_query(None, saved=True)
         self.query_box.setFocus()
-        self.reset_result_table()    
+        self.reset_result_table()
         self.source_info.clear()
-        self.source_info.addItem("Source: - | Max Rows: -")
-        self.source_info.setItemData(0, "No source", Qt.ItemDataRole.ToolTipRole)
+        self.source_info.addItem("Source: - | Rows: -")
+        self.source_info.setItemData(
+            0,
+            "No source",
+            Qt.ItemDataRole.ToolTipRole
+        )
         self.update_source_tooltip()
         self.query_status.clear()
         
@@ -881,21 +1319,40 @@ class CSVSQLApp(QMainWindow):
         
     def eventFilter(self, obj, event):
         if obj == getattr(self, "custom_query_input", None):
-            if event.type() == QEvent.Type.KeyPress:    
-                if event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down):
+            if event.type() == QEvent.Type.KeyPress:
+                if event.key() in (
+                    Qt.Key.Key_Up,
+                    Qt.Key.Key_Down
+                ):
                     cursor = obj.textCursor()
                     doc = obj.document()
                     current_block = cursor.block()
                     first_block = doc.firstBlock()
                     last_block = doc.lastBlock()
-                    if event.key() == Qt.Key.Key_Up and current_block == first_block:
-                        cursor.movePosition(QTextCursor.MoveOperation.Start)
+    
+                    if (
+                        event.key() == Qt.Key.Key_Up and
+                        current_block == first_block and
+                        cursor.positionInBlock() == 0
+                    ):
+                        cursor.movePosition(
+                            QTextCursor.MoveOperation.Start
+                        )
                         obj.setTextCursor(cursor)
                         return True
-                    if event.key() == Qt.Key.Key_Down and current_block == last_block:
-                        cursor.movePosition(QTextCursor.MoveOperation.End)
+    
+                    if (
+                        event.key() == Qt.Key.Key_Down and
+                        current_block == last_block and
+                        cursor.positionInBlock() ==
+                        len(current_block.text())
+                    ):
+                        cursor.movePosition(
+                            QTextCursor.MoveOperation.End
+                        )
                         obj.setTextCursor(cursor)
-                        return True    
+                        return True
+    
         return super().eventFilter(obj, event)
 
     def update_table_view(self):
@@ -903,43 +1360,137 @@ class CSVSQLApp(QMainWindow):
         if original_name == "Select Table":
             return
         if original_name not in self.name_map:
-            return    
+            return
         clean_name = self.name_map.get(original_name, {}).get("clean")
         if not clean_name:
             return
         df = self.tables.get(clean_name)
         if df is None:
             return
-        reverse_cols = self.name_map[original_name]["reverse_columns"]    
+        reverse_cols = self.name_map[original_name]["reverse_columns"]
         if self.mode_selector.currentText() == "Table Mode":
             self.csv_info.setRowCount(len(df.columns))
             self.csv_info.setColumnCount(2)
-            self.csv_info.setHorizontalHeaderLabels(["Column", "Non-Null Rows"])
+            self.csv_info.setHorizontalHeaderLabels(
+                ["Column", "Non-Null Rows"]
+            )
             for i, col in enumerate(df.columns):
                 count = df[col].count()
                 display_name = reverse_cols.get(col, col)
-                self.csv_info.setItem(i, 0, QTableWidgetItem(display_name))
-                self.csv_info.setItem(i, 1, QTableWidgetItem(str(count)))
+                self.csv_info.setItem(
+                    i,
+                    0,
+                    QTableWidgetItem(display_name)
+                )
+                self.csv_info.setItem(
+                    i,
+                    1,
+                    QTableWidgetItem(str(count))
+                )
         else:
             max_rows = min(len(df), 1000)
             self.csv_info.setRowCount(max_rows)
             self.csv_info.setColumnCount(len(df.columns))
-            headers = [reverse_cols.get(c, c) for c in df.columns]
+            headers = [
+                reverse_cols.get(c, c)
+                for c in df.columns
+            ]
             self.csv_info.setHorizontalHeaderLabels(headers)
             for i in range(max_rows):
                 for j in range(len(df.columns)):
-                    self.csv_info.setItem(i, j, QTableWidgetItem(str(df.iat[i, j])))
+                    value = df.iat[i, j]
+                    if pd.isna(value):
+                        value = ""
+                    self.csv_info.setItem(
+                        i,
+                        j,
+                        QTableWidgetItem(str(value))
+                    )
         self.csv_info.resizeColumnsToContents()
+        
+    def update_query_name_tag(self):
+        name = self.current_query_name if self.current_query_name else "Untitled"
+        if self.query_dirty:
+            name += " *"
+        self.query_name_tag.setText(name)
+    
+    def track_query_changes(self):
+        current_text = self.query_box.toPlainText().strip()
+        if self.current_query_name:
+            saved_data = self.saved_queries.get(
+                self.current_query_name,
+                {}
+            )
+            saved_query = (
+                saved_data.get("query", "").strip()
+                if isinstance(saved_data, dict)
+                else ""
+            )
+            self.query_dirty = current_text != saved_query
+        else:
+            self.query_dirty = bool(current_text)
+        if not self.query_box.hasFocus():
+            self.query_dirty = False
+        self.update_query_name_tag()
+    def set_active_query(self, name=None, saved=True):
+        self.current_query_name = name
+        self.query_dirty = not saved
+        self.update_query_name_tag()
+        
+    def keyPressEvent(self, event):
+        if (
+            event.modifiers() == Qt.KeyboardModifier.ControlModifier and
+            event.key() == Qt.Key.Key_S
+        ):
+            current_text = self.query_box.toPlainText().strip()
+            if (
+                self.current_query_name and
+                self.current_query_name in self.saved_queries and
+                current_text
+            ):
+                saved_data = self.saved_queries.get(
+                    self.current_query_name,
+                    {}
+                )
+                if not isinstance(saved_data, dict):
+                    saved_data = {
+                        "query": "",
+                        "db": "",
+                        "files": []
+                    }
+                saved_data["query"] = current_text
+                saved_data["db"] = self.db_mode_selector.currentText()
+                saved_data["files"] = list(self.name_map.keys())
+                self.saved_queries[self.current_query_name] = saved_data
+                with open(self.queries_path, "w") as f:
+                    json.dump(self.saved_queries, f, indent=2)
+                self.set_active_query(
+                    self.current_query_name,
+                    saved=True
+                )
+                self.query_status.setText(
+                    f"{self.current_query_name} saved"
+                )
+            else:
+                self.save_query()
+            return
+        super().keyPressEvent(event)
         
     def closeEvent(self, event):
         reply = QMessageBox.question(
             self,
             "Exit",
             "Are you sure you want to close the application?",
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Ok |
+            QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel
         )
         if reply == QMessageBox.StandardButton.Ok:
+            try:
+                if self.sqlite_conn:
+                    self.sqlite_conn.close()
+            except Exception:
+                pass
             event.accept()
         else:
             event.ignore()
