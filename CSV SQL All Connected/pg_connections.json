@@ -1,0 +1,16 @@
+{
+  "mysql": {
+    "host": "localhost",
+    "db": "practice_db",
+    "user": "root",
+    "password": "postgres23",
+    "port": 5432
+  },
+  "postgres": {
+    "host": "localhost",
+    "db": "practice_db",
+    "user": "postgres",
+    "password": "postgres23",
+    "port": 5432
+  }
+}
