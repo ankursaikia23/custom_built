@@ -1,0 +1,85 @@
+{
+  "SBI 1844 Missing Statements (8-5-2022 | 12-9-2025)": {
+    "query": "SELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2022 \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2023_unbound \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL \nSELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2024_unbound \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_1844_ib , sbi_1844_d , sbi_1844_c , sbi_1844_fb , sbi_1844_sts \nFROM dcb_with_statements_2025_unbound \nWHERE (sbi_1844_d IS NOT NULL OR sbi_1844_c IS NOT NULL)\nAND sbi_1844_sts IS NULL\nAND date != \"TOTAL:\"",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2025 Unbound",
+      "DCB (with statements) - 2024 Unbound",
+      "DCB (with statements) - 2023 Unbound"
+    ]
+  },
+  "SBI 7053 Missing Statements (9-13-2022 | 12-31-2025)": {
+    "query": "SELECT date , sbi_7053_ib , sbi_7053_d , sbi_7053_c , sbi_7053_fb , sbi_7053_sts \nFROM dcb_with_statements_2022 \nWHERE (sbi_7053_d IS NOT NULL OR sbi_7053_c IS NOT NULL)\nAND sbi_7053_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_7053_ib , sbi_7053_d , sbi_7053_c , sbi_7053_fb , sbi_7053_sts \nFROM dcb_with_statements_2023_unbound \nWHERE (sbi_7053_d IS NOT NULL OR sbi_7053_c IS NOT NULL)\nAND sbi_7053_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL \nSELECT date , sbi_7053_ib , sbi_7053_d , sbi_7053_c , sbi_7053_fb , sbi_7053_sts \nFROM dcb_with_statements_2024_unbound \nWHERE (sbi_7053_d IS NOT NULL OR sbi_7053_c IS NOT NULL)\nAND sbi_7053_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , sbi_7053_ib , sbi_7053_d , sbi_7053_c , sbi_7053_fb , sbi_7053_sts \nFROM dcb_with_statements_2025_unbound \nWHERE (sbi_7053_d IS NOT NULL OR sbi_7053_c IS NOT NULL)\nAND sbi_7053_sts IS NULL\nAND date != \"TOTAL:\"",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2025 Unbound",
+      "DCB (with statements) - 2024 Unbound",
+      "DCB (with statements) - 2023 Unbound"
+    ]
+  },
+  "FED 8433 Missing Statements (3-31-2022 | 7-31-2024)": {
+    "query": "SELECT date , fed_8433_ib , fed_8433_d , fed_8433_c , fed_8433_fb , fed_8433_sts  \nFROM dcb_with_statements_2022 \nWHERE (fed_8433_d IS NOT NULL OR fed_8433_c IS NOT NULL)\nAND fed_8433_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , fed_8433_ib , fed_8433_d , fed_8433_c , fed_8433_fb , fed_8433_sts  \nFROM dcb_with_statements_2023_unbound \nWHERE (fed_8433_d IS NOT NULL OR fed_8433_c IS NOT NULL)\nAND fed_8433_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL \nSELECT date , fed_8433_ib , fed_8433_d , fed_8433_c , fed_8433_fb , fed_8433_sts  \nFROM dcb_with_statements_2024_unbound \nWHERE (fed_8433_d IS NOT NULL OR fed_8433_c IS NOT NULL)\nAND fed_8433_sts IS NULL\nAND date != \"TOTAL:\"\nUNION ALL\nSELECT date , fed_8433_ib , fed_8433_d , fed_8433_c , fed_8433_fb , fed_8433_sts  \nFROM dcb_with_statements_2025_unbound \nWHERE (fed_8433_d IS NOT NULL OR fed_8433_c IS NOT NULL)\nAND fed_8433_sts IS NULL\nAND date != \"TOTAL:\"",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2025 Unbound",
+      "DCB (with statements) - 2024 Unbound",
+      "DCB (with statements) - 2023 Unbound"
+    ]
+  },
+  "Smart Meter Summary (1-8-2024  | 4-23-2026)": {
+    "query": "SELECT \n\"From => 01-08-2024 : To => 12-31-2024\" AS Year ,\nROUND (AVG (unit_day), 2) AS Unit_Per_Day ,\nSUM (rcg) AS Total_Recharge ,\nROUND (AVG (rcg), 2) AS Average_Charge_Per_Day\nFROM smart_meter_2024 \nWHERE date != \"Jan 1 to 7 2024\"\nUNION ALL \nSELECT \n\"From => 01-01-2025 : To => 12-31-2025\" AS year ,\nROUND (AVG (unit_day), 2) AS Unit_Per_Day ,\nSUM (rcg) AS Total_Recharge ,\nROUND (AVG (rcg), 2) AS Average_Charge_Per_Day\nFROM smart_meter_2025\nUNION ALL \nSELECT \n\"From => 01-01-2026 : To => 04-23-2026\" AS Year,\nROUND (AVG (unit_day), 2) AS Unit_Per_Day ,\nSUM (rcg) AS Total_Recharge ,\nROUND (AVG (rcg), 2) AS Average_Charge_Per_Day \nFROM smart_meter_2026 \nWHERE date (SUBSTR (date , 7, 4) || '-' || SUBSTR (date, 1, 2) || '-' || SUBSTR (date , 4, 2)) <= date('2026-04-23')",
+    "db": "COMMON",
+    "files": [
+      "SMART METER - 2026",
+      "SMART METER - 2024",
+      "SMART METER - 2025"
+    ]
+  },
+  "Smart Meter Missing Statements (1-8-2024 | 4-24-2026)": {
+    "query": "SELECT date , rcg , sts \nFROM smart_meter_2024 \nWHERE rcg > 1\nAND sts IS NULL\nAND date != \"Jan 1 to 7 2024\"\nUNION ALL\nSELECT date , rcg , sts \nFROM smart_meter_2025 \nWHERE rcg > 1\nAND sts IS NULL\nUNION ALL \nSELECT date , rcg , sts \nFROM smart_meter_2026 \nWHERE rcg > 1\nAND sts IS NULL",
+    "db": "COMMON",
+    "files": [
+      "SMART METER - 2026",
+      "SMART METER - 2024",
+      "SMART METER - 2025"
+    ]
+  },
+  "2022 Monthly Summed Debit & Credit (MSD & MSC)": {
+    "query": "SELECT\n\"2022\" AS Year ,\nCASE SUBSTR(date, 1, INSTR(date, '/') - 1)\nWHEN '1'  THEN 'January'\nWHEN '2'  THEN 'February'\nWHEN '3'  THEN 'March'\nWHEN '4'  THEN 'April'\nWHEN '5'  THEN 'May'\nWHEN '6'  THEN 'June'\nWHEN '7'  THEN 'July'\nWHEN '8'  THEN 'August'\nWHEN '9'  THEN 'September'\nWHEN '10' THEN 'October'\nWHEN '11' THEN 'November'\nWHEN '12' THEN 'December'\nEND AS Month ,\nROUND (SUM (CAST (sbi_1844_d AS REAL)), 2) AS \"SBI 1844 MSD\" ,\nROUND (SUM (CAST (sbi_1844_c AS REAL)), 2) AS \"SBI 1844 MSC\" ,\nROUND (SUM (CAST (sbi_7053_d AS REAL)), 2) AS \"SBI 7053 MSD\" ,\nROUND (SUM (CAST (sbi_7053_c AS REAL)), 2) AS \"SBI 7053 MSC\" ,\nROUND (SUM (CAST (fed_8433_d AS REAL)), 2) AS \"FED 8433 MSD\" ,\nROUND (SUM (CAST (fed_8433_c AS REAL)), 2) AS \"FED 8433 MSC\" \nFROM dcb_with_statements_2022 \nWHERE date != \"TOTAL:\"\nGROUP BY\nSUBSTR(date, 1, INSTR(date, '/') - 1)\nORDER BY\nCASE SUBSTR(date, 1, INSTR(date, '/') - 1)\nWHEN '1' THEN 1\nWHEN '2' THEN 2\nWHEN '3' THEN 3\nWHEN '4' THEN 4\nWHEN '5' THEN 5\nWHEN '6' THEN 6\nWHEN '7' THEN 7\nWHEN '8' THEN 8\nWHEN '9' THEN 9\nWHEN '10' THEN 10\nWHEN '11' THEN 11\nWHEN '12' THEN 12\nEND",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2022"
+    ]
+  },
+  "2023 Monthly Summed Debit & Credit (MSD & MSC)": {
+    "query": "SELECT\n\"2023\" AS Year ,\nCASE SUBSTR(date, 1, INSTR(date, '/') - 1)\nWHEN '1'  THEN 'January'\nWHEN '2'  THEN 'February'\nWHEN '3'  THEN 'March'\nWHEN '4'  THEN 'April'\nWHEN '5'  THEN 'May'\nWHEN '6'  THEN 'June'\nWHEN '7'  THEN 'July'\nWHEN '8'  THEN 'August'\nWHEN '9'  THEN 'September'\nWHEN '10' THEN 'October'\nWHEN '11' THEN 'November'\nWHEN '12' THEN 'December'\nEND AS Month ,\nROUND (SUM (CAST (sbi_1844_d AS REAL)), 2) AS \"SBI 1844 MSD\" ,\nROUND (SUM (CAST (sbi_1844_c AS REAL)), 2) AS \"SBI 1844 MSC\" ,\nROUND (SUM (CAST (sbi_7053_d AS REAL)), 2) AS \"SBI 7053 MSD\" ,\nROUND (SUM (CAST (sbi_7053_c AS REAL)), 2) AS \"SBI 7053 MSC\" ,\nROUND (SUM (CAST (fed_8433_d AS REAL)), 2) AS \"FED 8433 MSD\" ,\nROUND (SUM (CAST (fed_8433_c AS REAL)), 2) AS \"FED 8433 MSC\" \nFROM dcb_with_statements_2023_unbound \nWHERE date != \"TOTAL:\"\nGROUP BY\nSUBSTR(date, 1, INSTR(date, '/') - 1)\nORDER BY\nCASE SUBSTR(date, 1, INSTR(date, '/') - 1)\nWHEN '1' THEN 1\nWHEN '2' THEN 2\nWHEN '3' THEN 3\nWHEN '4' THEN 4\nWHEN '5' THEN 5\nWHEN '6' THEN 6\nWHEN '7' THEN 7\nWHEN '8' THEN 8\nWHEN '9' THEN 9\nWHEN '10' THEN 10\nWHEN '11' THEN 11\nWHEN '12' THEN 12\nEND",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2023 Unbound"
+    ]
+  },
+  "2024 Monthly Summed Debit & Credit (MSD & MSC)": {
+    "query": "SELECT\n\"2024\" AS Year ,\nCASE SUBSTR(date, 1, INSTR(date, '/') - 1)\nWHEN '1'  THEN 'January'\nWHEN '2'  THEN 'February'\nWHEN '3'  THEN 'March'\nWHEN '4'  THEN 'April'\nWHEN '5'  THEN 'May'\nWHEN '6'  THEN 'June'\nWHEN '7'  THEN 'July'\nWHEN '8'  THEN 'August'\nWHEN '9'  THEN 'September'\nWHEN '10' THEN 'October'\nWHEN '11' THEN 'November'\nWHEN '12' THEN 'December'\nEND AS Month ,\nROUND (SUM (CAST (sbi_1844_d AS REAL)), 2) AS \"SBI 1844 MSD\" ,\nROUND (SUM (CAST (sbi_1844_c AS REAL)), 2) AS \"SBI 1844 MSC\" ,\nROUND (SUM (CAST (sbi_7053_d AS REAL)), 2) AS \"SBI 7053 MSD\" ,\nROUND (SUM (CAST (sbi_7053_c AS REAL)), 2) AS \"SBI 7053 MSC\" ,\nROUND (SUM (CAST (fed_8433_d AS REAL)), 2) AS \"FED 8433 MSD\" ,\nROUND (SUM (CAST (fed_8433_c AS REAL)), 2) AS \"FED 8433 MSC\" \nFROM dcb_with_statements_2024_unbound \nWHERE date != \"TOTAL:\"\nGROUP BY\nSUBSTR(date, 1, INSTR(date, '/') - 1)\nORDER BY\nCASE SUBSTR(date, 1, INSTR(date, '/') - 1)\nWHEN '1' THEN 1\nWHEN '2' THEN 2\nWHEN '3' THEN 3\nWHEN '4' THEN 4\nWHEN '5' THEN 5\nWHEN '6' THEN 6\nWHEN '7' THEN 7\nWHEN '8' THEN 8\nWHEN '9' THEN 9\nWHEN '10' THEN 10\nWHEN '11' THEN 11\nWHEN '12' THEN 12\nEND",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2024 Unbound"
+    ]
+  },
+  "2025 Monthly Summed Debit & Credit (MSD & MSC)": {
+    "query": "SELECT\n\"2025\" AS Year ,\nCASE SUBSTR(date, 1, INSTR(date, '/') - 1)\nWHEN '1'  THEN 'January'\nWHEN '2'  THEN 'February'\nWHEN '3'  THEN 'March'\nWHEN '4'  THEN 'April'\nWHEN '5'  THEN 'May'\nWHEN '6'  THEN 'June'\nWHEN '7'  THEN 'July'\nWHEN '8'  THEN 'August'\nWHEN '9'  THEN 'September'\nWHEN '10' THEN 'October'\nWHEN '11' THEN 'November'\nWHEN '12' THEN 'December'\nEND AS Month ,\nROUND (SUM (CAST (sbi_1844_d AS REAL)), 2) AS \"SBI 1844 MSD\" ,\nROUND (SUM (CAST (sbi_1844_c AS REAL)), 2) AS \"SBI 1844 MSC\" ,\nROUND (SUM (CAST (sbi_7053_d AS REAL)), 2) AS \"SBI 7053 MSD\" ,\nROUND (SUM (CAST (sbi_7053_c AS REAL)), 2) AS \"SBI 7053 MSC\" ,\nROUND (SUM (CAST (fed_8433_d AS REAL)), 2) AS \"FED 8433 MSD\" ,\nROUND (SUM (CAST (fed_8433_c AS REAL)), 2) AS \"FED 8433 MSC\" \nFROM dcb_with_statements_2025_unbound \nWHERE date != \"TOTAL:\"\nGROUP BY\nSUBSTR(date, 1, INSTR(date, '/') - 1)\nORDER BY\nCASE SUBSTR(date, 1, INSTR(date, '/') - 1)\nWHEN '1' THEN 1\nWHEN '2' THEN 2\nWHEN '3' THEN 3\nWHEN '4' THEN 4\nWHEN '5' THEN 5\nWHEN '6' THEN 6\nWHEN '7' THEN 7\nWHEN '8' THEN 8\nWHEN '9' THEN 9\nWHEN '10' THEN 10\nWHEN '11' THEN 11\nWHEN '12' THEN 12\nEND",
+    "db": "COMMON",
+    "files": [
+      "DCB (with statements) - 2025 Unbound"
+    ]
+  },
+  "Testing query": {
+    "query": "SELECT *\nFROM dcb_with_statements_2022 \nWHERE (sbi_1844_d IS NOT NULL) OR (sbi_1844_c IS NOT NULL)\nOR (sbi_7053_d IS NOT NULL) OR (sbi_7053_c IS NOT NULL)\nOR (fed_8433_d IS NOT NULL) OR (fed_8433_c IS NOT NULL)",
+    "db": "SQL",
+    "files": [
+      "DCB (with statements) - 2022",
+      "DCB (with statements) - 2023 Unbound",
+      "DCB (with statements) - 2024 Unbound",
+      "DCB (with statements) - 2025 Unbound"
+    ]
+  }
+}
