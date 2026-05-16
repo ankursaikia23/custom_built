@@ -1,162 +1,636 @@
 {
   "SQL": [
-    "SELECT",
-    "FROM",
-    "WHERE",
-    "INSERT",
-    "INTO",
-    "VALUES",
-    "UPDATE",
-    "SET",
-    "DELETE",
-    "DISTINCT",
-    "ALL",
-    "AS",
-    "AND",
-    "OR",
-    "NOT",
-    "IN",
-    "EXISTS",
-    "BETWEEN",
-    "LIKE",
-    "IS",
-    "NULL",
-    "JOIN",
-    "INNER",
-    "LEFT",
-    "RIGHT",
-    "FULL",
-    "OUTER",
-    "CROSS",
-    "NATURAL",
-    "ON",
-    "USING",
-    "GROUP",
-    "BY",
-    "HAVING",
-    "ORDER",
-    "LIMIT",
-    "OFFSET",
-    "ASC",
-    "DESC",
-    "UNION",
-    "INTERSECT",
-    "EXCEPT",
-    "CASE",
-    "WHEN",
-    "THEN",
-    "ELSE",
-    "END",
-    "CREATE",
-    "TABLE",
-    "ALTER",
-    "ADD",
-    "DROP",
-    "TRUNCATE",
-    "PRIMARY",
-    "KEY",
-    "FOREIGN",
-    "REFERENCES",
-    "UNIQUE",
-    "CHECK",
-    "DEFAULT",
-    "INDEX",
-    "VIEW",
-    "TRIGGER",
-    "SEQUENCE",
-    "COUNT",
-    "SUM",
-    "AVG",
-    "MIN",
-    "MAX",
-    "ROUND",
-    "CEIL",
-    "FLOOR",
-    "ABS",
-    "POWER",
-    "SQRT",
-    "LENGTH",
-    "CHAR_LENGTH",
-    "SUBSTR",
-    "SUBSTRING",
-    "TRIM",
-    "LTRIM",
-    "RTRIM",
-    "UPPER",
-    "LOWER",
-    "CONCAT",
-    "REPLACE",
-    "CAST",
-    "CONVERT",
-    "COALESCE",
-    "NULLIF",
-    "CURRENT_DATE",
-    "CURRENT_TIME",
-    "CURRENT_TIMESTAMP",
-    "EXTRACT",
-    "DATE",
-    "TIME",
-    "OVER",
-    "PARTITION",
-    "ROWS",
-    "RANGE",
-    "PRECEDING",
-    "FOLLOWING",
-    "CURRENT",
-    "ROW",
-    "WITH",
-    "RECURSIVE",
-    "BEGIN",
-    "COMMIT",
-    "ROLLBACK",
-    "TRANSACTION",
-    "GRANT",
-    "REVOKE",
-    "EXPLAIN",
-    "ANALYZE",
-    "INTEGER",
-    "REAL",
-    "TEXT",
-    "BLOB",
-    "NUMERIC",
-    "BOOLEAN",
-    "DATETIME",
-    "YEAR",
-    "MONTH",
-    "INSTR",
-    "AUTOINCREMENT",
-    "ROWID",
-    "WITHOUT",
-    "GLOB",
-    "IFNULL",
-    "PRAGMA",
-    "VACUUM",
-    "ATTACH",
-    "DETACH",
-    "REINDEX",
-    "COLLATE",
-    "TOTAL",
-    "LIKELIHOOD",
-    "RANDOM",
-    "RANDOMBLOB",
-    "PRINTF",
-    "HEX",
-    "QUOTE",
-    "TYPEOF",
-    "JULIANDAY",
-    "STRFTIME",
-    "ROW_NUMBER",
-    "RANK",
-    "DENSE_RANK",
-    "NTILE",
-    "LAG",
-    "LEAD",
-    "FIRST_VALUE",
-    "LAST_VALUE",
-    "CUME_DIST",
-    "PERCENT_RANK",
-    "UNBOUNDED",
-    "TIES",
-    "FILTER"
+    {
+      "name": "ABS",
+      "description": "Returns the absolute value of a number."
+    },
+    {
+      "name": "ADD",
+      "description": "Adds a new column or constraint."
+    },
+    {
+      "name": "ALL",
+      "description": "Includes all rows, including duplicates."
+    },
+    {
+      "name": "ALTER",
+      "description": "Modifies the structure of an existing database object."
+    },
+    {
+      "name": "ANALYZE",
+      "description": "Collects statistics to help optimize query execution."
+    },
+    {
+      "name": "AND",
+      "description": "Combines conditions where all must be true."
+    },
+    {
+      "name": "AS",
+      "description": "Assigns an alias to a column or table."
+    },
+    {
+      "name": "ASC",
+      "description": "Sorts values in ascending order."
+    },
+    {
+      "name": "ATTACH",
+      "description": "Connects another database file to the current session."
+    },
+    {
+      "name": "AUTOINCREMENT",
+      "description": "Automatically generates a unique integer value for new rows."
+    },
+    {
+      "name": "AVG",
+      "description": "Returns the arithmetic mean of numeric values."
+    },
+    {
+      "name": "BEGIN",
+      "description": "Starts a transaction."
+    },
+    {
+      "name": "BETWEEN",
+      "description": "Checks whether a value falls within a specified range."
+    },
+    {
+      "name": "BLOB",
+      "description": "Stores binary large objects."
+    },
+    {
+      "name": "BOOLEAN",
+      "description": "Stores logical true or false values."
+    },
+    {
+      "name": "BY",
+      "description": "Used with GROUP BY and ORDER BY to specify grouping or sorting columns."
+    },
+    {
+      "name": "CASE",
+      "description": "Starts a conditional expression."
+    },
+    {
+      "name": "CAST",
+      "description": "Converts a value from one data type to another."
+    },
+    {
+      "name": "CEIL",
+      "description": "Rounds a number up to the nearest integer."
+    },
+    {
+      "name": "CHAR_LENGTH",
+      "description": "Returns the number of characters in a string."
+    },
+    {
+      "name": "CHECK",
+      "description": "Enforces a condition on inserted or updated values."
+    },
+    {
+      "name": "COALESCE",
+      "description": "Returns the first non-null value."
+    },
+    {
+      "name": "COLLATE",
+      "description": "Specifies the text comparison sequence."
+    },
+    {
+      "name": "COMMIT",
+      "description": "Permanently saves changes in the current transaction."
+    },
+    {
+      "name": "CONCAT",
+      "description": "Combines multiple strings into one."
+    },
+    {
+      "name": "CONVERT",
+      "description": "Converts a value to a specified data type."
+    },
+    {
+      "name": "COUNT",
+      "description": "Returns the number of rows or non-null values."
+    },
+    {
+      "name": "CREATE",
+      "description": "Creates a database object such as a table or view."
+    },
+    {
+      "name": "CROSS",
+      "description": "Returns the Cartesian product of two tables."
+    },
+    {
+      "name": "CUME_DIST",
+      "description": "Returns the cumulative distribution of a row within its partition."
+    },
+    {
+      "name": "CURRENT",
+      "description": "Refers to the current row in a window frame."
+    },
+    {
+      "name": "CURRENT_DATE",
+      "description": "Returns the current date."
+    },
+    {
+      "name": "CURRENT_TIME",
+      "description": "Returns the current time."
+    },
+    {
+      "name": "CURRENT_TIMESTAMP",
+      "description": "Returns the current date and time."
+    },
+    {
+      "name": "DATE",
+      "description": "Represents or extracts a date value."
+    },
+    {
+      "name": "DATETIME",
+      "description": "Stores or returns combined date and time values."
+    },
+    {
+      "name": "DEFAULT",
+      "description": "Provides a value when none is specified."
+    },
+    {
+      "name": "DELETE",
+      "description": "Removes rows from a table."
+    },
+    {
+      "name": "DENSE_RANK",
+      "description": "Assigns ranks without gaps for ties."
+    },
+    {
+      "name": "DESC",
+      "description": "Sorts values in descending order."
+    },
+    {
+      "name": "DETACH",
+      "description": "Disconnects an attached database file."
+    },
+    {
+      "name": "DISTINCT",
+      "description": "Returns only unique rows, removing duplicates."
+    },
+    {
+      "name": "DROP",
+      "description": "Deletes a database object."
+    },
+    {
+      "name": "ELSE",
+      "description": "Specifies the default result in a CASE expression."
+    },
+    {
+      "name": "END",
+      "description": "Ends a CASE expression."
+    },
+    {
+      "name": "EXCEPT",
+      "description": "Returns rows from the first query not found in the second."
+    },
+    {
+      "name": "EXISTS",
+      "description": "Returns true if a subquery returns at least one row."
+    },
+    {
+      "name": "EXPLAIN",
+      "description": "Shows how the database will execute a query."
+    },
+    {
+      "name": "EXTRACT",
+      "description": "Retrieves a specific part of a date or time value."
+    },
+    {
+      "name": "FILTER",
+      "description": "Applies a condition to rows used by an aggregate function."
+    },
+    {
+      "name": "FIRST_VALUE",
+      "description": "Returns the first value in the current window frame."
+    },
+    {
+      "name": "FLOOR",
+      "description": "Rounds a number down to the nearest integer."
+    },
+    {
+      "name": "FOLLOWING",
+      "description": "Specifies rows after the current row in a window frame."
+    },
+    {
+      "name": "FOREIGN",
+      "description": "Defines a relationship to another table."
+    },
+    {
+      "name": "FROM",
+      "description": "Specifies the table or source to query."
+    },
+    {
+      "name": "FULL",
+      "description": "Returns all rows when there is a match in either table."
+    },
+    {
+      "name": "GLOB",
+      "description": "Matches text patterns using Unix-style wildcards."
+    },
+    {
+      "name": "GRANT",
+      "description": "Gives privileges to users or roles."
+    },
+    {
+      "name": "GROUP",
+      "description": "Groups rows that share the same values."
+    },
+    {
+      "name": "HAVING",
+      "description": "Filters grouped rows after aggregation."
+    },
+    {
+      "name": "HEX",
+      "description": "Converts a value to its hexadecimal representation."
+    },
+    {
+      "name": "IFNULL",
+      "description": "Returns the second value if the first is NULL."
+    },
+    {
+      "name": "IN",
+      "description": "Checks whether a value matches any value in a list or subquery."
+    },
+    {
+      "name": "INDEX",
+      "description": "Creates a data structure that speeds up searches and sorting."
+    },
+    {
+      "name": "INNER",
+      "description": "Returns only rows with matching values in both tables."
+    },
+    {
+      "name": "INSERT",
+      "description": "Adds new rows into a table."
+    },
+    {
+      "name": "INSTR",
+      "description": "Returns the position of a substring within a string."
+    },
+    {
+      "name": "INTEGER",
+      "description": "Stores whole numbers."
+    },
+    {
+      "name": "INTERSECT",
+      "description": "Returns rows common to both query results."
+    },
+    {
+      "name": "INTO",
+      "description": "Specifies the target table for INSERT statements."
+    },
+    {
+      "name": "IS",
+      "description": "Compares values, commonly used with NULL."
+    },
+    {
+      "name": "JOIN",
+      "description": "Combines rows from two or more tables."
+    },
+    {
+      "name": "JULIANDAY",
+      "description": "Returns the Julian day number for a date or time."
+    },
+    {
+      "name": "KEY",
+      "description": "Used with PRIMARY KEY and FOREIGN KEY constraints."
+    },
+    {
+      "name": "LAG",
+      "description": "Returns a value from a preceding row."
+    },
+    {
+      "name": "LAST_VALUE",
+      "description": "Returns the last value in the current window frame."
+    },
+    {
+      "name": "LEAD",
+      "description": "Returns a value from a following row."
+    },
+    {
+      "name": "LEFT",
+      "description": "Returns all rows from the left table and matching rows from the right table."
+    },
+    {
+      "name": "LENGTH",
+      "description": "Returns the number of characters in a string."
+    },
+    {
+      "name": "LIKE",
+      "description": "Matches text patterns using wildcards."
+    },
+    {
+      "name": "LIKELIHOOD",
+      "description": "Provides the query planner with probability hints."
+    },
+    {
+      "name": "LIMIT",
+      "description": "Restricts the number of rows returned."
+    },
+    {
+      "name": "LOWER",
+      "description": "Converts text to lowercase."
+    },
+    {
+      "name": "LTRIM",
+      "description": "Removes leading characters from a string."
+    },
+    {
+      "name": "MAX",
+      "description": "Returns the largest value."
+    },
+    {
+      "name": "MIN",
+      "description": "Returns the smallest value."
+    },
+    {
+      "name": "MONTH",
+      "description": "Represents or extracts the month component of a date."
+    },
+    {
+      "name": "NATURAL",
+      "description": "Automatically joins tables using columns with the same names."
+    },
+    {
+      "name": "NOT",
+      "description": "Negates a condition."
+    },
+    {
+      "name": "NTILE",
+      "description": "Divides rows into a specified number of groups."
+    },
+    {
+      "name": "NULL",
+      "description": "Represents a missing or unknown value."
+    },
+    {
+      "name": "NULLIF",
+      "description": "Returns NULL if two expressions are equal."
+    },
+    {
+      "name": "NUMERIC",
+      "description": "Stores numbers using flexible numeric affinity."
+    },
+    {
+      "name": "OFFSET",
+      "description": "Skips a specified number of rows before returning results."
+    },
+    {
+      "name": "ON",
+      "description": "Specifies the join condition between tables."
+    },
+    {
+      "name": "OR",
+      "description": "Combines conditions where at least one must be true."
+    },
+    {
+      "name": "ORDER",
+      "description": "Sorts query results."
+    },
+    {
+      "name": "OUTER",
+      "description": "Used with LEFT, RIGHT, or FULL JOIN."
+    },
+    {
+      "name": "OVER",
+      "description": "Defines a window for window functions."
+    },
+    {
+      "name": "PARTITION",
+      "description": "Divides rows into groups for window functions."
+    },
+    {
+      "name": "PERCENT_RANK",
+      "description": "Returns the relative rank of a row as a percentage."
+    },
+    {
+      "name": "POWER",
+      "description": "Raises a number to a specified exponent."
+    },
+    {
+      "name": "PRAGMA",
+      "description": "Queries or modifies SQLite database settings."
+    },
+    {
+      "name": "PRECEDING",
+      "description": "Specifies rows before the current row in a window frame."
+    },
+    {
+      "name": "PRIMARY",
+      "description": "Defines the main unique identifier for a table."
+    },
+    {
+      "name": "PRINTF",
+      "description": "Formats values into a string."
+    },
+    {
+      "name": "QUOTE",
+      "description": "Returns a value as a properly quoted SQL literal."
+    },
+    {
+      "name": "RANDOM",
+      "description": "Returns a pseudo-random integer."
+    },
+    {
+      "name": "RANDOMBLOB",
+      "description": "Returns a blob containing random bytes."
+    },
+    {
+      "name": "RANGE",
+      "description": "Defines a value-based window frame."
+    },
+    {
+      "name": "RANK",
+      "description": "Assigns ranks with gaps for ties."
+    },
+    {
+      "name": "REAL",
+      "description": "Stores floating-point numbers."
+    },
+    {
+      "name": "RECURSIVE",
+      "description": "Allows a CTE to reference itself."
+    },
+    {
+      "name": "REFERENCES",
+      "description": "Specifies the referenced table and column for a foreign key."
+    },
+    {
+      "name": "REINDEX",
+      "description": "Rebuilds indexes."
+    },
+    {
+      "name": "REPLACE",
+      "description": "Replaces occurrences of one substring with another."
+    },
+    {
+      "name": "REVOKE",
+      "description": "Removes privileges from users or roles."
+    },
+    {
+      "name": "RIGHT",
+      "description": "Returns all rows from the right table and matching rows from the left table."
+    },
+    {
+      "name": "ROLLBACK",
+      "description": "Reverts changes made in the current transaction."
+    },
+    {
+      "name": "ROUND",
+      "description": "Rounds a numeric value to a specified number of decimal places."
+    },
+    {
+      "name": "ROW",
+      "description": "Used in window frame definitions to refer to a single row."
+    },
+    {
+      "name": "ROWID",
+      "description": "The unique internal identifier for a row in SQLite."
+    },
+    {
+      "name": "ROWS",
+      "description": "Defines a row-based window frame."
+    },
+    {
+      "name": "ROW_NUMBER",
+      "description": "Assigns a sequential number to each row in a window."
+    },
+    {
+      "name": "RTRIM",
+      "description": "Removes trailing characters from a string."
+    },
+    {
+      "name": "SELECT",
+      "description": "Retrieves data from one or more tables."
+    },
+    {
+      "name": "SEQUENCE",
+      "description": "Generates sequential numeric values."
+    },
+    {
+      "name": "SET",
+      "description": "Assigns new values to columns in an UPDATE statement."
+    },
+    {
+      "name": "SQRT",
+      "description": "Returns the square root of a number."
+    },
+    {
+      "name": "STRFTIME",
+      "description": "Formats a date or time according to a format string."
+    },
+    {
+      "name": "SUBSTR",
+      "description": "Extracts part of a string starting at a specified position."
+    },
+    {
+      "name": "SUBSTRING",
+      "description": "Extracts part of a string."
+    },
+    {
+      "name": "SUM",
+      "description": "Returns the total of numeric values."
+    },
+    {
+      "name": "TABLE",
+      "description": "Defines or references a table."
+    },
+    {
+      "name": "TEXT",
+      "description": "Stores character strings."
+    },
+    {
+      "name": "THEN",
+      "description": "Specifies the result when a CASE condition is true."
+    },
+    {
+      "name": "TIES",
+      "description": "Includes rows that have the same ordering value as the last selected row."
+    },
+    {
+      "name": "TIME",
+      "description": "Represents or extracts a time value."
+    },
+    {
+      "name": "TOTAL",
+      "description": "Returns the sum of values as a floating-point number."
+    },
+    {
+      "name": "TRANSACTION",
+      "description": "Groups multiple statements into a single unit of work."
+    },
+    {
+      "name": "TRIGGER",
+      "description": "Executes automatically in response to database events."
+    },
+    {
+      "name": "TRIM",
+      "description": "Removes leading and trailing characters, usually spaces."
+    },
+    {
+      "name": "TRUNCATE",
+      "description": "Removes all rows from a table."
+    },
+    {
+      "name": "TYPEOF",
+      "description": "Returns the SQLite storage class of a value."
+    },
+    {
+      "name": "UNBOUNDED",
+      "description": "Specifies a window frame boundary with no limit."
+    },
+    {
+      "name": "UNION",
+      "description": "Combines results from multiple queries and removes duplicates."
+    },
+    {
+      "name": "UNIQUE",
+      "description": "Ensures all values in a column are distinct."
+    },
+    {
+      "name": "UPDATE",
+      "description": "Modifies existing rows in a table."
+    },
+    {
+      "name": "UPPER",
+      "description": "Converts text to uppercase."
+    },
+    {
+      "name": "USING",
+      "description": "Specifies common columns to join tables."
+    },
+    {
+      "name": "VACUUM",
+      "description": "Rebuilds the database file to reclaim unused space."
+    },
+    {
+      "name": "VALUES",
+      "description": "Provides the data values to insert into a table."
+    },
+    {
+      "name": "VIEW",
+      "description": "Creates a virtual table based on a query."
+    },
+    {
+      "name": "WHEN",
+      "description": "Defines a condition in a CASE expression."
+    },
+    {
+      "name": "WHERE",
+      "description": "Filters rows based on a condition."
+    },
+    {
+      "name": "WITH",
+      "description": "Defines a common table expression (CTE)."
+    },
+    {
+      "name": "WITHOUT",
+      "description": "Used in SQLite to create a table without a ROWID."
+    },
+    {
+      "name": "YEAR",
+      "description": "Represents or extracts the year component of a date."
+    }
   ]
 }

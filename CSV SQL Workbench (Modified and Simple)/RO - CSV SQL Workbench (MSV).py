@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QFileDialog, QTableWidget,
     QTableWidgetItem, QLabel, QHBoxLayout, QSplitter,
     QAbstractItemView, QComboBox, QCompleter, QTextEdit, QMenu, QHeaderView,
-    QDialog, QMessageBox, QLineEdit, QListWidget
+    QDialog, QMessageBox, QLineEdit, QListWidget, QInputDialog, QStyledItemDelegate
 )
 # from PyQt6.QtWidgets import QPlainTextEdit, QSizePolicy
 from PyQt6.QtCore import Qt, QStringListModel, QEvent
@@ -64,6 +64,13 @@ class SQLTextEdit(QTextEdit):
         self.app = app
         self.completer = None
         self.completer_model = QStringListModel([])
+        self.tab_width = 4
+        metrics = self.fontMetrics()
+        self.setTabStopDistance(
+            metrics.horizontalAdvance(" ") * self.tab_width
+        )
+        self.setAcceptRichText(False)
+        self.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
 
     def setCompleter(self, completer):
         self.completer = completer
@@ -112,7 +119,137 @@ class SQLTextEdit(QTextEdit):
                 return token
         return None
 
+    def get_current_line_text(self):
+        tc = self.textCursor()
+        tc.select(QTextCursor.SelectionType.LineUnderCursor)
+        return tc.selectedText()
+
+    def get_indent(self, text):
+        return len(text) - len(text.lstrip(" "))
+
+    def should_increase_indent(self, line):
+        stripped = line.strip().upper()
+        if not stripped:
+            return False
+        increase_keywords = (
+            "SELECT",
+            "FROM",
+            "WHERE",
+            "GROUP BY",
+            "ORDER BY",
+            "HAVING",
+            "JOIN",
+            "LEFT JOIN",
+            "RIGHT JOIN",
+            "INNER JOIN",
+            "OUTER JOIN",
+            "ON",
+            "CASE",
+            "WHEN",
+            "THEN",
+            "ELSE",
+            "BEGIN",
+            "("
+        )
+        return any(
+            stripped.endswith(keyword)
+            for keyword in increase_keywords
+        ) or stripped.endswith(",")
+
+    def should_decrease_indent(self, line):
+        stripped = line.strip().upper()
+        decrease_keywords = (
+            "END",
+            ")",
+            "WHEN",
+            "ELSE"
+        )
+        return any(
+            stripped.startswith(keyword)
+            for keyword in decrease_keywords
+        )
+
+    def toggle_comment(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            start = cursor.selectionStart()
+            end = cursor.selectionEnd()
+            cursor.setPosition(start)
+            start_block = cursor.blockNumber()
+            cursor.setPosition(end)
+            if cursor.positionInBlock() == 0 and end > start:
+                end_block = cursor.blockNumber() - 1
+            else:
+                end_block = cursor.blockNumber()
+            block = self.document().findBlockByNumber(start_block)
+            lines = []
+            for _ in range(start_block, end_block + 1):
+                lines.append(block.text())
+                block = block.next()
+            non_empty = [
+                line for line in lines
+                if line.strip()
+            ]
+            all_commented = (
+                bool(non_empty) and
+                all(
+                    line.lstrip().startswith("--")
+                    for line in non_empty
+                )
+            )
+            updated = []
+            for line in lines:
+                if not line.strip():
+                    updated.append(line)
+                    continue
+                leading = len(line) - len(line.lstrip(" "))
+                prefix = line[:leading]
+                content = line[leading:]
+                if all_commented:
+                    if content.startswith("-- "):
+                        content = content[3:]
+                    elif content.startswith("--"):
+                        content = content[2:]
+                else:
+                    content = "-- " + content
+                updated.append(prefix + content)
+            cursor.beginEditBlock()
+            block = self.document().findBlockByNumber(start_block)
+            for new_line in updated:
+                block_cursor = QTextCursor(block)
+                block_cursor.select(
+                    QTextCursor.SelectionType.LineUnderCursor
+                )
+                block_cursor.removeSelectedText()
+                block_cursor.insertText(new_line)
+                block = block.next()
+            cursor.endEditBlock()
+        else:
+            tc = self.textCursor()
+            tc.select(QTextCursor.SelectionType.LineUnderCursor)
+            line = tc.selectedText()
+            if not line.strip():
+                return
+            leading = len(line) - len(line.lstrip(" "))
+            prefix = line[:leading]
+            content = line[leading:]
+            if content.startswith("-- "):
+                content = content[3:]
+            elif content.startswith("--"):
+                content = content[2:]
+            else:
+                content = "-- " + content
+            tc.removeSelectedText()
+            tc.insertText(prefix + content)
+
     def keyPressEvent(self, event):
+        if (
+            event.modifiers() ==
+            Qt.KeyboardModifier.ControlModifier and
+            event.key() == Qt.Key.Key_Slash
+        ):
+            self.toggle_comment()
+            return
         if (
             event.modifiers() &
             Qt.KeyboardModifier.ControlModifier
@@ -131,10 +268,154 @@ class SQLTextEdit(QTextEdit):
                 return
             if event.key() in (
                 Qt.Key.Key_Up,
-                Qt.Key.Key_Down
+                Qt.Key.Key_Down,
+                Qt.Key.Key_PageUp,
+                Qt.Key.Key_PageDown
             ):
                 self.completer.popup().keyPressEvent(event)
                 return
+            if event.key() == Qt.Key.Key_Escape:
+                self.completer.popup().hide()
+                return
+        if event.key() == Qt.Key.Key_Tab:
+            if self.textCursor().hasSelection():
+                cursor = self.textCursor()
+                start = cursor.selectionStart()
+                end = cursor.selectionEnd()
+                cursor.setPosition(start)
+                start_block = cursor.blockNumber()
+                cursor.setPosition(end)
+                if cursor.positionInBlock() == 0 and end > start:
+                    end_block = cursor.blockNumber() - 1
+                else:
+                    end_block = cursor.blockNumber()
+                cursor.beginEditBlock()
+                block = self.document().findBlockByNumber(start_block)
+                for _ in range(start_block, end_block + 1):
+                    block_cursor = QTextCursor(block)
+                    block_cursor.movePosition(
+                        QTextCursor.MoveOperation.StartOfBlock
+                    )
+                    block_cursor.insertText(" " * self.tab_width)
+                    block = block.next()
+                cursor.endEditBlock()
+                return
+            if not self.completer:
+                self.insertPlainText(" " * self.tab_width)
+                return
+            tc = self.textCursor()
+            tc.select(QTextCursor.SelectionType.WordUnderCursor)
+            prefix = tc.selectedText().strip()
+            if prefix:
+                full_text = self.toPlainText()
+                context_tables = self.extract_table_context(full_text)
+                suggestions = set()
+                suggestions.update(self.app.get_keywords())
+                suggestions.update(self.app.tables.keys())
+                for table_name, df in self.app.tables.items():
+                    if df is not None and hasattr(df, "columns"):
+                        suggestions.update([
+                            str(col).strip().lower()
+                            for col in df.columns.tolist()
+                        ])
+                if context_tables:
+                    for table in context_tables:
+                        df = self.app.tables.get(table)
+                        if df is not None and hasattr(df, "columns"):
+                            suggestions.update([
+                                str(col).strip().lower()
+                                for col in df.columns.tolist()
+                            ])
+                filtered = sorted([
+                    s for s in suggestions
+                    if str(s).strip() and
+                    str(s).lower().startswith(prefix.lower())
+                ])
+                if filtered:
+                    self.completer_model.setStringList(filtered)
+                    self.completer.setCompletionPrefix(prefix)
+                    popup = self.completer.popup()
+                    popup_width = (
+                        popup.sizeHintForColumn(0) +
+                        popup.verticalScrollBar().sizeHint().width() +
+                        20
+                    )
+                    cr = self.cursorRect()
+                    cr.setWidth(max(150, popup_width))
+                    self.completer.complete(cr)
+                    return
+            self.insertPlainText(" " * self.tab_width)
+            return
+        if (
+            event.key() == Qt.Key.Key_Backtab and
+            self.textCursor().hasSelection()
+        ):
+            cursor = self.textCursor()
+            start = cursor.selectionStart()
+            end = cursor.selectionEnd()
+            cursor.setPosition(start)
+            start_block = cursor.blockNumber()
+            cursor.setPosition(end)
+            if cursor.positionInBlock() == 0 and end > start:
+                end_block = cursor.blockNumber() - 1
+            else:
+                end_block = cursor.blockNumber()
+            cursor.beginEditBlock()
+            block = self.document().findBlockByNumber(start_block)
+            for _ in range(start_block, end_block + 1):
+                text = block.text()
+                remove_count = min(
+                    self.tab_width,
+                    len(text) - len(text.lstrip(" "))
+                )
+                if remove_count > 0:
+                    block_cursor = QTextCursor(block)
+                    block_cursor.movePosition(
+                        QTextCursor.MoveOperation.StartOfBlock
+                    )
+                    for _ in range(remove_count):
+                        block_cursor.deleteChar()
+                block = block.next()
+            cursor.endEditBlock()
+            return
+        if event.key() in (
+            Qt.Key.Key_Return,
+            Qt.Key.Key_Enter
+        ):
+            current_line = self.get_current_line_text()
+            indent = self.get_indent(current_line)
+            if self.should_decrease_indent(current_line):
+                indent = max(0, indent - self.tab_width)
+            super().keyPressEvent(event)
+            if self.should_increase_indent(current_line):
+                indent += self.tab_width
+            self.insertPlainText(" " * indent)
+            return
+        if event.key() == Qt.Key.Key_Home:
+            cursor = self.textCursor()
+            line = self.get_current_line_text()
+            first_non_space = len(line) - len(line.lstrip(" "))
+            current_pos = cursor.positionInBlock()
+            target = (
+                0 if current_pos == first_non_space
+                else first_non_space
+            )
+            if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+                cursor.movePosition(
+                    QTextCursor.MoveOperation.StartOfBlock,
+                    QTextCursor.MoveMode.KeepAnchor
+                )
+                cursor.movePosition(
+                    QTextCursor.MoveOperation.Right,
+                    QTextCursor.MoveMode.KeepAnchor,
+                    target
+                )
+            else:
+                cursor.setPosition(
+                    cursor.block().position() + target
+                )
+            self.setTextCursor(cursor)
+            return
         if event.key() in (
             Qt.Key.Key_Up,
             Qt.Key.Key_Down
@@ -157,6 +438,7 @@ class SQLTextEdit(QTextEdit):
                     )
                 self.setTextCursor(cursor)
                 return
+
             if (
                 event.key() == Qt.Key.Key_Down and
                 current_block == doc.lastBlock()
@@ -172,62 +454,7 @@ class SQLTextEdit(QTextEdit):
                     )
                 self.setTextCursor(cursor)
                 return
-        if event.key() == Qt.Key.Key_Tab:
-            if not self.completer:
-                self.insertPlainText("    ")
-                return
-            tc = self.textCursor()
-            tc.select(QTextCursor.SelectionType.WordUnderCursor)
-            prefix = tc.selectedText().strip()
-            full_text = self.toPlainText()
-            context_tables = self.extract_table_context(full_text)
-            suggestions = set()
-            suggestions.update(self.app.get_keywords())
-            suggestions.update(self.app.tables.keys())
-            for table_name, df in self.app.tables.items():
-                if df is not None and hasattr(df, "columns"):
-                    suggestions.update([
-                        str(col).strip().lower()
-                        for col in df.columns.tolist()
-                    ])
-            if context_tables:
-                for table in context_tables:
-                    df = self.app.tables.get(table)
-                    if df is not None and hasattr(df, "columns"):
-                        suggestions.update([
-                            str(col).strip().lower()
-                            for col in df.columns.tolist()
-                        ])
-            filtered = sorted([
-                s for s in suggestions
-                if str(s).strip() and (
-                    not prefix or
-                    str(s).lower().startswith(prefix.lower())
-                )
-            ])
-            self.completer_model.setStringList(filtered)
-            self.completer.setCompletionPrefix(prefix)
-            popup = self.completer.popup()
-            popup_width = (
-                popup.sizeHintForColumn(0) +
-                popup.verticalScrollBar().sizeHint().width() +
-                20
-            )
-            cr = self.cursorRect()
-            cr.setWidth(max(150, popup_width))
-            self.completer.complete(cr)
-            return
-        if event.key() in (
-            Qt.Key.Key_Return,
-            Qt.Key.Key_Enter
-        ):
-            tc = self.textCursor()
-            tc.select(QTextCursor.SelectionType.LineUnderCursor)
-            line = tc.selectedText()
-            indent = len(line) - len(line.lstrip(" "))
-            super().keyPressEvent(event)
-            self.insertPlainText(" " * indent)
-            return
+            
         super().keyPressEvent(event)
 
 class CSVSQLApp(QMainWindow):
@@ -549,10 +776,18 @@ class CSVSQLApp(QMainWindow):
         self.set_active_query(None, saved=True)
         
     def get_keywords(self):
-        return sorted(set(
-            k for k in self.keyword_data.get("SQL", [])
-            if isinstance(k, str) and k.strip()
-        ))
+        sql_items = self.keyword_data.get("SQL", [])
+        keywords = []
+        for item in sql_items:
+            if isinstance(item, dict):
+                name = str(item.get("name", "")).strip().upper()
+            elif isinstance(item, str):
+                name = item.strip().upper()
+            else:
+                continue
+            if name:
+                keywords.append(name)
+        return sorted(set(keywords))
     
     def refresh_highlighter(self):
         self.highlighter.update_pattern()
@@ -1297,160 +1532,331 @@ class CSVSQLApp(QMainWindow):
         self.query_status.clear()
         
     def show_help(self):
-        dialog=QDialog(self)
+        dialog = QDialog(self)
         dialog.setWindowTitle("SQL Keywords Editor")
-        dialog.resize(1000,700)
-        layout=QVBoxLayout(dialog)
-        text=QTextEdit()
-        text.setFont(QFont("Consolas",10))
-        text.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
-        if "SQL" in self.keyword_data and isinstance(self.keyword_data["SQL"],list):
-            formatted='{\n  "SQL": [\n    '
-            line=[]
-            max_width=120
-            current_len=4
-            for keyword in self.keyword_data["SQL"]:
-                item=f'"{keyword}"'
-                extra=len(item)+(2 if line else 0)
-                if current_len+extra>max_width:
-                    formatted+=", ".join(line)+",\n    "
-                    line=[item]
-                    current_len=4+len(item)
-                else:
-                    line.append(item)
-                    current_len+=extra
-            if line:
-                formatted+=", ".join(line)
-            formatted+='\n  ]\n}'
-        else:
-            formatted=json.dumps(self.keyword_data,indent=2)
-        text.setPlainText(formatted)
-        btn_row=QHBoxLayout()
-        save_btn=QPushButton("Save")
-        close_btn=QPushButton("Close")
+        dialog.resize(1200, 700)
+        layout = QVBoxLayout(dialog)
+        table = QTableWidget()
+        table.setItemDelegate(QStyledItemDelegate(table))
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["Keyword", "Description"])
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+        table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        table.setAlternatingRowColors(True)
+        table.setStyleSheet("""
+            QTableWidget {
+                selection-background-color: #d3d3d3;
+                selection-color: black;
+            }
+        """)
+        table.horizontalHeader().setSectionResizeMode(
+            0,
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+        table.horizontalHeader().setSectionResizeMode(
+            1,
+            QHeaderView.ResizeMode.Stretch
+        )    
+        sql_items = self.keyword_data.get("SQL", [])
+        rows = []
+        for item in sql_items:
+            if isinstance(item, dict):
+                name = str(item.get("name", "")).strip().upper()
+                description = str(item.get("description", "")).strip()
+            elif isinstance(item, str):
+                name = item.strip().upper()
+                description = ""
+            else:
+                continue
+            if name:
+                rows.append((name, description))
+        rows.sort(key=lambda x: x[0])
+        table.setRowCount(len(rows))
+        for row_index, (name, description) in enumerate(rows):
+            table.setItem(row_index, 0, QTableWidgetItem(name))
+            table.setItem(row_index, 1, QTableWidgetItem(description))
+        btn_row = QHBoxLayout()
+        search_box = QLineEdit()
+        search_box.setPlaceholderText("Search keyword or description...")
+        search_box.setClearButtonEnabled(True)
+        search_box.setFixedWidth(300)        
+        status_label = QLabel("Ready")
+        status_label.setMinimumWidth(400)
+        add_rows_btn = QPushButton("Add Row(s)")
+        remove_duplicates_btn = QPushButton("Remove Duplicates")
+        delete_rows_btn = QPushButton("Delete Keyword(s)")
+        save_btn = QPushButton("Save")
+        close_btn = QPushButton("Close")
+        btn_row.addWidget(search_box)
+        btn_row.addWidget(status_label)
         btn_row.addStretch()
+        btn_row.addWidget(add_rows_btn)
+        btn_row.addWidget(remove_duplicates_btn)
+        btn_row.addWidget(delete_rows_btn)
         btn_row.addWidget(save_btn)
         btn_row.addWidget(close_btn)
-        layout.addWidget(text)
+        layout.addWidget(table)
         layout.addLayout(btn_row)
-        state={"saved_text":text.toPlainText()}
-        duplicate_format=QTextCharFormat()
-        duplicate_format.setBackground(QColor("yellow"))
+        state = {"saved_data": [(name, description) for name, description in rows]}
+    
+        def collect_rows():
+            collected = []
+            seen = set()
+            for row in range(table.rowCount()):
+                name_item = table.item(row, 0)
+                desc_item = table.item(row, 1)
+                name = (
+                    name_item.text().strip().upper()
+                    if name_item and name_item.text().strip()
+                    else ""
+                )
+                description = (
+                    desc_item.text().strip()
+                    if desc_item and desc_item.text().strip()
+                    else ""
+                )
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                collected.append({
+                    "name": name,
+                    "description": description
+                })
+            collected.sort(key=lambda x: x["name"])
+            return collected
         
         def highlight_duplicates():
-            selections=[]
-            try:
-                parsed=json.loads(text.toPlainText())
-                if not isinstance(parsed,dict) or "SQL" not in parsed or not isinstance(parsed["SQL"],list):
-                    text.setExtraSelections([])
-                    return
-                positions={}
-                pattern=re.compile(r'"([^"]+)"')
-                for match in pattern.finditer(text.toPlainText()):
-                    keyword=match.group(1).strip().upper()
-                    positions.setdefault(keyword,[]).append((match.start(1),match.end(1)))
-                for keyword,ranges in positions.items():
-                    if len(ranges)>1:
-                        for start,end in ranges:
-                            selection=QTextEdit.ExtraSelection()
-                            selection.cursor=text.textCursor()
-                            selection.cursor.setPosition(start)
-                            selection.cursor.setPosition(end,QTextCursor.MoveMode.KeepAnchor)
-                            selection.format=duplicate_format
-                            selections.append(selection)
-            except Exception:
-                pass
-            text.setExtraSelections(selections)
-            
-        def normalize_and_validate():
-            current_text=text.toPlainText()
-            parsed=json.loads(current_text)
-            if not isinstance(parsed,dict):
-                raise ValueError("Root must be a JSON object")
-            if "SQL" not in parsed:
-                raise ValueError("Missing 'SQL' key")
-            if not isinstance(parsed["SQL"],list):
-                raise ValueError("'SQL' must be a list")
-            cleaned=[]
-            seen=set()
-            for item in parsed["SQL"]:
-                if not isinstance(item,str):
-                    continue
-                keyword=item.strip().upper()
-                if keyword and keyword not in seen:
-                    seen.add(keyword)
-                    cleaned.append(keyword)
-            parsed={"SQL":cleaned}
-            formatted='{\n  "SQL": [\n    '
-            line=[]
-            max_width=120
-            current_len=4
-            for keyword in cleaned:
-                item=f'"{keyword}"'
-                extra=len(item)+(2 if line else 0)
-                if current_len+extra>max_width:
-                    formatted+=", ".join(line)+",\n    "
-                    line=[item]
-                    current_len=4+len(item)
-                else:
-                    line.append(item)
-                    current_len+=extra
-            if line:
-                formatted+=", ".join(line)
-            formatted+='\n  ]\n}'
-            return parsed,formatted
+            return
         
+        def delete_rows():
+            selected_rows = sorted(
+                {index.row() for index in table.selectionModel().selectedRows()},
+                reverse=True
+            )
+            if not selected_rows:
+                return
+            reply = QMessageBox.question(
+                dialog,
+                "Delete Keywords",
+                "Are you sure?",
+                QMessageBox.StandardButton.Ok |
+                QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel
+            )
+            if reply != QMessageBox.StandardButton.Ok:
+                return
+        
+            for row in selected_rows:
+                table.removeRow(row)
+                
+        def remove_duplicates():
+            seen = set()
+            rows_to_remove = []
+            removed_keywords = []    
+            for row in range(table.rowCount()):
+                item = table.item(row, 0)
+                keyword = (
+                    item.text().strip().upper()
+                    if item and item.text().strip()
+                    else ""
+                )
+                if not keyword:
+                    continue
+                if keyword in seen:
+                    rows_to_remove.append(row)
+                    removed_keywords.append(keyword)
+                else:
+                    seen.add(keyword)
+            if not rows_to_remove:
+                status_label.setText("No duplicate keywords found")
+                return
+            reply = QMessageBox.question(
+                dialog,
+                "Remove Duplicates",
+                "Are you sure?",
+                QMessageBox.StandardButton.Ok |
+                QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel
+            )
+            if reply != QMessageBox.StandardButton.Ok:
+                return
+            for row in reversed(rows_to_remove):
+                table.removeRow(row)        
+            unique_keywords = sorted(set(removed_keywords))
+            preview = ", ".join(unique_keywords[:5])
+            if len(unique_keywords) > 5:
+                preview += ", ..."
+            status_label.setText(
+                f"Removed {len(rows_to_remove)} duplicate row(s): {preview}"
+            )
+                
+        def search_keywords():
+            text = search_box.text().strip().lower()    
+            for row in range(table.rowCount()):
+                keyword_item = table.item(row, 0)
+                description_item = table.item(row, 1)
+                keyword = keyword_item.text().lower() if keyword_item else ""
+                description = description_item.text().lower() if description_item else ""
+                matched = (
+                    not text or
+                    text in keyword or
+                    text in description
+                )
+                table.setRowHidden(row, not matched)
+            if text:
+                visible_rows = sum(
+                    1
+                    for row in range(table.rowCount())
+                    if not table.isRowHidden(row)
+                )
+                status_label.setText(
+                    f"Found {visible_rows} matching row(s)"
+                )
+            else:
+                status_label.setText("Ready")
+        
+        def edit_current_cell():
+            item = table.currentItem()
+            if item:
+                table.editItem(item)
+        
+        def handle_item_changed(item):
+            if item.column() == 0:
+                item.setText(item.text().strip().upper())
+            highlight_duplicates()
+        
+        def on_item_changed(item):
+            table.blockSignals(True)
+            try:
+                if item.column() == 0:
+                    item.setText(item.text().strip().upper())
+                highlight_duplicates()
+            finally:
+                table.blockSignals(False)
+        
+        table.itemChanged.connect(on_item_changed)
+    
         def save_keywords():
             try:
-                parsed,formatted=normalize_and_validate()
+                parsed = {"SQL": collect_rows()}
+                if not parsed["SQL"]:
+                    raise ValueError("No valid keywords found")
             except Exception as e:
-                QMessageBox.warning(dialog,"Invalid JSON",f"Error:\n{str(e)}")
+                QMessageBox.warning(
+                    dialog,
+                    "Invalid Data",
+                    f"Error:\n{str(e)}"
+                )
                 return
-            reply=QMessageBox.question(dialog,"Save Keywords","Are you sure?",QMessageBox.StandardButton.Ok|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)
-            if reply!=QMessageBox.StandardButton.Ok:
+            reply = QMessageBox.question(
+                dialog,
+                "Save Keywords",
+                "Are you sure?",
+                QMessageBox.StandardButton.Ok |
+                QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel
+            )
+            if reply != QMessageBox.StandardButton.Ok:
                 return
-            base_dir=os.path.dirname(os.path.abspath(__file__))
-            json_path=os.path.join(base_dir,"sql_keywords.json")
-            with open(json_path,"w",encoding="utf-8") as f:
-                json.dump(parsed,f,indent=2,ensure_ascii=False)
-            self.keyword_data=parsed
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            json_path = os.path.join(base_dir, "sql_keywords.json")    
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(parsed, f, indent=2, ensure_ascii=False)
+            self.keyword_data = parsed
             self.refresh_highlighter()
             self.completer.model().setStringList([])
             self.query_box.completer_model.setStringList([])
-            text.blockSignals(True)
-            text.setPlainText(formatted)
-            text.blockSignals(False)
-            state["saved_text"]=formatted
-            highlight_duplicates()
+            state["saved_data"] = [
+                (item["name"], item["description"])
+                for item in parsed["SQL"]
+            ]
             self.query_status.setText("Keywords saved")
-        
+    
+        def has_unsaved_changes():
+            current_data = [
+                (item["name"], item["description"])
+                for item in collect_rows()
+            ]
+            return current_data != state["saved_data"]
+    
         def attempt_close():
-            if text.toPlainText()!=state["saved_text"]:
-                reply=QMessageBox.question(dialog,"Unsaved Changes","Exit without saving?",QMessageBox.StandardButton.Ok|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)
-                if reply!=QMessageBox.StandardButton.Ok:
-                    return
-            dialog.accept()
-        
+            reply = QMessageBox.question(
+                dialog,
+                "Exit Without Saving",
+                "Exit without saving?",
+                QMessageBox.StandardButton.Ok |
+                QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel
+            )
+            if reply == QMessageBox.StandardButton.Ok:
+                dialog.accept()
+    
         def keypress(event):
-            if event.modifiers()==Qt.KeyboardModifier.ControlModifier and event.key()==Qt.Key.Key_S:
+            if (
+                event.modifiers() ==
+                Qt.KeyboardModifier.ControlModifier and
+                event.key() == Qt.Key.Key_S
+            ):
                 save_keywords()
-                return
-            QDialog.keyPressEvent(dialog,event)
-            
-        def close_event(event):
-            if text.toPlainText()!=state["saved_text"]:
-                reply=QMessageBox.question(dialog,"Unsaved Changes","Exit without saving?",QMessageBox.StandardButton.Ok|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)
-                if reply!=QMessageBox.StandardButton.Ok:
-                    event.ignore()
+                return    
+            if table.hasFocus():
+                if event.key() in (
+                    Qt.Key.Key_Return,
+                    Qt.Key.Key_Enter
+                ):
+                    if table.state() == QAbstractItemView.State.EditingState:
+                        table.closePersistentEditor(table.currentItem())
+                    else:
+                        edit_current_cell()
                     return
-            event.accept()
-        
-        text.textChanged.connect(highlight_duplicates)
+            QDialog.keyPressEvent(dialog, event)
+    
+        def close_event(event):
+            reply = QMessageBox.question(
+                dialog,
+                "Exit Without Saving",
+                "Exit without saving?",
+                QMessageBox.StandardButton.Ok |
+                QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel
+            )
+            if reply == QMessageBox.StandardButton.Ok:
+                event.accept()
+            else:
+                event.ignore()
+    
+        def add_rows():
+            value, ok = QInputDialog.getInt(
+                dialog,
+                "Add Rows",
+                "Number of rows to add:",
+                1,
+                1,
+                1000,
+                1
+            )
+            if not ok:
+                return    
+            current_rows = table.rowCount()
+            table.setRowCount(current_rows + value)
+            for row in range(current_rows, current_rows + value):
+                table.setItem(row, 0, QTableWidgetItem(""))
+                table.setItem(row, 1, QTableWidgetItem(""))
+            table.setCurrentCell(current_rows, 0)
+            table.editItem(table.item(current_rows, 0))
+            status_label.setText(
+                f"Added {value} row(s): {current_rows + 1}-{current_rows + value}"
+            )
+                
+        search_box.textChanged.connect(search_keywords)
+        add_rows_btn.clicked.connect(add_rows)
+        remove_duplicates_btn.clicked.connect(remove_duplicates)
+        delete_rows_btn.clicked.connect(delete_rows)
         save_btn.clicked.connect(save_keywords)
         close_btn.clicked.connect(attempt_close)
-        dialog.keyPressEvent=keypress
-        dialog.closeEvent=close_event
-        highlight_duplicates()
+        dialog.keyPressEvent = keypress
+        dialog.closeEvent = close_event
         dialog.exec()
         
     def eventFilter(self, obj, event):
@@ -1465,7 +1871,6 @@ class CSVSQLApp(QMainWindow):
                     current_block = cursor.block()
                     first_block = doc.firstBlock()
                     last_block = doc.lastBlock()
-    
                     if (
                         event.key() == Qt.Key.Key_Up and
                         current_block == first_block and
@@ -1475,8 +1880,7 @@ class CSVSQLApp(QMainWindow):
                             QTextCursor.MoveOperation.Start
                         )
                         obj.setTextCursor(cursor)
-                        return True
-    
+                        return True    
                     if (
                         event.key() == Qt.Key.Key_Down and
                         current_block == last_block and
@@ -1488,7 +1892,6 @@ class CSVSQLApp(QMainWindow):
                         )
                         obj.setTextCursor(cursor)
                         return True
-    
         return super().eventFilter(obj, event)
 
     def update_table_view(self):
