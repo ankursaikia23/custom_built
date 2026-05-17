@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 import re
 import os
+import shutil
 import json
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
@@ -438,7 +439,6 @@ class SQLTextEdit(QTextEdit):
                     )
                 self.setTextCursor(cursor)
                 return
-
             if (
                 event.key() == Qt.Key.Key_Down and
                 current_block == doc.lastBlock()
@@ -460,6 +460,7 @@ class SQLTextEdit(QTextEdit):
 class CSVSQLApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.max_query_rows = 1000
         self.setWindowTitle("CSV SQL Workbench")
         self.setGeometry(100, 100, 1000, 650)
         self.sqlite_conn = sqlite3.connect(":memory:", check_same_thread=False)
@@ -762,7 +763,7 @@ class CSVSQLApp(QMainWindow):
                 )
                 last_loaded_display_name = display_name
             except Exception as e:
-                self.query_status.setText(f"Error:\n{str(e)}")
+                self.set_status(f"Error:\n{str(e)}")
         if last_loaded_display_name:
             index = self.table_selector.findText(last_loaded_display_name)
             if index >= 0:
@@ -828,11 +829,16 @@ class CSVSQLApp(QMainWindow):
 
     def export_csv(self):
         if self.result_table.rowCount() == 0:
-            self.query_status.setText("No data to export")
+            self.set_status("No data to export")
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Save CSV", "", "CSV Files (*.csv)")
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save CSV",
+            "",
+            "CSV Files (*.csv)"
+        )
         if not path:
-            return    
+            return
         rows = self.result_table.rowCount()
         cols = self.result_table.columnCount()
         headers = []
@@ -846,12 +852,17 @@ class CSVSQLApp(QMainWindow):
                 item = self.result_table.item(i, j)
                 row.append(item.text() if item else "")
             data.append(row)
-        df = pd.DataFrame(data, columns=headers)
-        df.to_csv(path, index=False)
+        try:
+            df = pd.DataFrame(data, columns=headers)
+            df.to_csv(path, index=False)
+            self.remember_export_directory(path)
+            self.set_status("CSV exported successfully")
+        except Exception as e:
+            self.set_status(f"Error:\n{str(e)}")
 
     def export_pdf(self):
         if self.result_table.rowCount() == 0:
-            self.query_status.setText("No data to export")
+            self.set_status("No data to export")
             return
         path, _ = QFileDialog.getSaveFileName(
             self,
@@ -907,7 +918,7 @@ class CSVSQLApp(QMainWindow):
             pdf.build([table])
             self.query_status.setText("PDF exported successfully")
         except Exception as e:
-            self.query_status.setText(f"Error:\n{str(e)}")
+            self.set_status(f"Error:\n{str(e)}")
         
     def save_query(self):
         text = self.query_box.toPlainText().strip()
@@ -1011,12 +1022,29 @@ class CSVSQLApp(QMainWindow):
             }
             with open(self.queries_path, "w", encoding="utf-8") as f:
                 json.dump(self.saved_queries, f, indent=2, ensure_ascii=False)
+                self.backup_saved_queries()
             self.set_active_query(final_name, saved=True)
             dialog.accept()
         
         save_btn.clicked.connect(do_save)
         cancel_btn.clicked.connect(dialog.reject)
         dialog.exec()
+        
+    def get_sorted_saved_queries(self):
+        return sorted(self.saved_queries.items(), key=lambda x: x[0].lower())
+    
+    def backup_saved_queries(self):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        source_path = os.path.join(base_dir, "saved_queries.json")
+        backup_path = os.path.join(base_dir, "saved_queries_backup.json")
+        if os.path.exists(source_path):
+            shutil.copy2(source_path, backup_path)
+            
+    def set_status(self, message):
+        self.query_status.setText(message)
+        
+    def remember_export_directory(self, path):
+        self.last_export_dir = os.path.dirname(path)
             
     def show_queries_popup(self):
         if self.custom_queries_window:
@@ -1193,6 +1221,8 @@ class CSVSQLApp(QMainWindow):
             )
             self.query_box.setPlainText(query)
             self.set_active_query(name, saved=True)
+            self.query_box.setFocus()
+            self.query_box.moveCursor(QTextCursor.MoveOperation.End)
             notify(f"{name} loaded")
     
         def delete_query_inline(name):
@@ -1220,7 +1250,7 @@ class CSVSQLApp(QMainWindow):
         def refresh_table():
             table.setRowCount(len(self.saved_queries))
             for row, (name, data) in enumerate(
-                self.saved_queries.items()
+                self.get_sorted_saved_queries()
             ):
                 db_val = (
                     data.get("db", "")
@@ -1436,7 +1466,7 @@ class CSVSQLApp(QMainWindow):
             has_result = cursor.description is not None
             if has_result:
                 headers = [desc[0] for desc in cursor.description]
-                rows = cursor.fetchmany(1000)
+                rows = cursor.fetchmany(getattr(self, "max_query_rows", 1000))
                 self.populate_result_table(rows, headers)
                 self.result_table.horizontalHeader().setSectionResizeMode(
                     QHeaderView.ResizeMode.Interactive
@@ -1503,7 +1533,7 @@ class CSVSQLApp(QMainWindow):
                 self.source_info.setToolTip("No source")
             self.update_source_tooltip()
         except Exception as e:
-            self.query_status.setText(f"Error:\n{str(e)}")
+            self.set_status(f"Error:\n{str(e)}")
         finally:
             try:
                 if cursor:
@@ -1540,7 +1570,7 @@ class CSVSQLApp(QMainWindow):
         table.setItemDelegate(QStyledItemDelegate(table))
         table.setColumnCount(2)
         table.setHorizontalHeaderLabels(["Keyword", "Description"])
-        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.EditKeyPressed | QAbstractItemView.EditTrigger.AnyKeyPressed)
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
         table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         table.setAlternatingRowColors(True)
@@ -1557,7 +1587,7 @@ class CSVSQLApp(QMainWindow):
         table.horizontalHeader().setSectionResizeMode(
             1,
             QHeaderView.ResizeMode.Stretch
-        )    
+        )
         sql_items = self.keyword_data.get("SQL", [])
         rows = []
         for item in sql_items:
@@ -1580,7 +1610,7 @@ class CSVSQLApp(QMainWindow):
         search_box = QLineEdit()
         search_box.setPlaceholderText("Search keyword or description...")
         search_box.setClearButtonEnabled(True)
-        search_box.setFixedWidth(300)        
+        search_box.setFixedWidth(300)
         status_label = QLabel("Ready")
         status_label.setMinimumWidth(400)
         add_rows_btn = QPushButton("Add Row(s)")
@@ -1625,10 +1655,10 @@ class CSVSQLApp(QMainWindow):
                 })
             collected.sort(key=lambda x: x["name"])
             return collected
-        
+    
         def highlight_duplicates():
             return
-        
+    
         def delete_rows():
             selected_rows = sorted(
                 {index.row() for index in table.selectionModel().selectedRows()},
@@ -1646,14 +1676,13 @@ class CSVSQLApp(QMainWindow):
             )
             if reply != QMessageBox.StandardButton.Ok:
                 return
-        
             for row in selected_rows:
                 table.removeRow(row)
-                
+    
         def remove_duplicates():
             seen = set()
             rows_to_remove = []
-            removed_keywords = []    
+            removed_keywords = []
             for row in range(table.rowCount()):
                 item = table.item(row, 0)
                 keyword = (
@@ -1682,7 +1711,7 @@ class CSVSQLApp(QMainWindow):
             if reply != QMessageBox.StandardButton.Ok:
                 return
             for row in reversed(rows_to_remove):
-                table.removeRow(row)        
+                table.removeRow(row)
             unique_keywords = sorted(set(removed_keywords))
             preview = ", ".join(unique_keywords[:5])
             if len(unique_keywords) > 5:
@@ -1690,9 +1719,9 @@ class CSVSQLApp(QMainWindow):
             status_label.setText(
                 f"Removed {len(rows_to_remove)} duplicate row(s): {preview}"
             )
-                
+    
         def search_keywords():
-            text = search_box.text().strip().lower()    
+            text = search_box.text().strip().lower()
             for row in range(table.rowCount()):
                 keyword_item = table.item(row, 0)
                 description_item = table.item(row, 1)
@@ -1715,17 +1744,12 @@ class CSVSQLApp(QMainWindow):
                 )
             else:
                 status_label.setText("Ready")
-        
+    
         def edit_current_cell():
             item = table.currentItem()
             if item:
                 table.editItem(item)
-        
-        def handle_item_changed(item):
-            if item.column() == 0:
-                item.setText(item.text().strip().upper())
-            highlight_duplicates()
-        
+    
         def on_item_changed(item):
             table.blockSignals(True)
             try:
@@ -1734,7 +1758,7 @@ class CSVSQLApp(QMainWindow):
                 highlight_duplicates()
             finally:
                 table.blockSignals(False)
-        
+    
         table.itemChanged.connect(on_item_changed)
     
         def save_keywords():
@@ -1760,7 +1784,7 @@ class CSVSQLApp(QMainWindow):
             if reply != QMessageBox.StandardButton.Ok:
                 return
             base_dir = os.path.dirname(os.path.abspath(__file__))
-            json_path = os.path.join(base_dir, "sql_keywords.json")    
+            json_path = os.path.join(base_dir, "sql_keywords.json")
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(parsed, f, indent=2, ensure_ascii=False)
             self.keyword_data = parsed
@@ -1781,16 +1805,18 @@ class CSVSQLApp(QMainWindow):
             return current_data != state["saved_data"]
     
         def attempt_close():
-            reply = QMessageBox.question(
-                dialog,
-                "Exit Without Saving",
-                "Exit without saving?",
-                QMessageBox.StandardButton.Ok |
-                QMessageBox.StandardButton.Cancel,
-                QMessageBox.StandardButton.Cancel
-            )
-            if reply == QMessageBox.StandardButton.Ok:
-                dialog.accept()
+            if has_unsaved_changes():
+                reply = QMessageBox.question(
+                    dialog,
+                    "Exit Without Saving",
+                    "Exit without saving?",
+                    QMessageBox.StandardButton.Ok |
+                    QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Cancel
+                )
+                if reply != QMessageBox.StandardButton.Ok:
+                    return
+            dialog.accept()
     
         def keypress(event):
             if (
@@ -1799,7 +1825,7 @@ class CSVSQLApp(QMainWindow):
                 event.key() == Qt.Key.Key_S
             ):
                 save_keywords()
-                return    
+                return
             if table.hasFocus():
                 if event.key() in (
                     Qt.Key.Key_Return,
@@ -1813,18 +1839,19 @@ class CSVSQLApp(QMainWindow):
             QDialog.keyPressEvent(dialog, event)
     
         def close_event(event):
-            reply = QMessageBox.question(
-                dialog,
-                "Exit Without Saving",
-                "Exit without saving?",
-                QMessageBox.StandardButton.Ok |
-                QMessageBox.StandardButton.Cancel,
-                QMessageBox.StandardButton.Cancel
-            )
-            if reply == QMessageBox.StandardButton.Ok:
-                event.accept()
-            else:
-                event.ignore()
+            if has_unsaved_changes():
+                reply = QMessageBox.question(
+                    dialog,
+                    "Exit Without Saving",
+                    "Exit without saving?",
+                    QMessageBox.StandardButton.Ok |
+                    QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Cancel
+                )
+                if reply != QMessageBox.StandardButton.Ok:
+                    event.ignore()
+                    return
+            event.accept()
     
         def add_rows():
             value, ok = QInputDialog.getInt(
@@ -1837,7 +1864,7 @@ class CSVSQLApp(QMainWindow):
                 1
             )
             if not ok:
-                return    
+                return
             current_rows = table.rowCount()
             table.setRowCount(current_rows + value)
             for row in range(current_rows, current_rows + value):
@@ -1848,7 +1875,7 @@ class CSVSQLApp(QMainWindow):
             status_label.setText(
                 f"Added {value} row(s): {current_rows + 1}-{current_rows + value}"
             )
-                
+    
         search_box.textChanged.connect(search_keywords)
         add_rows_btn.clicked.connect(add_rows)
         remove_duplicates_btn.clicked.connect(remove_duplicates)
@@ -1968,9 +1995,8 @@ class CSVSQLApp(QMainWindow):
             self.query_dirty = current_text != saved_query
         else:
             self.query_dirty = bool(current_text)
-        if not self.query_box.hasFocus():
-            self.query_dirty = False
         self.update_query_name_tag()
+    
     def set_active_query(self, name=None, saved=True):
         self.current_query_name = name
         self.query_dirty = not saved
