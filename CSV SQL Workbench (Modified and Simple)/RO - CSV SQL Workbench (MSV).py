@@ -653,6 +653,7 @@ class CSVSQLApp(QMainWindow):
         self.help_btn.clicked.connect(self.show_help)
         self.query_box.setFocus()
         self.current_query_name = None
+        self.last_export_dir = os.path.dirname(os.path.abspath(__file__))
         self.query_dirty = False
         self.query_box.textChanged.connect(self.track_query_changes)
 
@@ -670,6 +671,8 @@ class CSVSQLApp(QMainWindow):
         ]
         if not files:
             return
+        self.reset_result_table()
+        self.query_status.clear()
         if self.table_selector.count() == 0:
             self.table_selector.addItem("Select Table")
         if self.source_info.count() == 0:
@@ -826,6 +829,7 @@ class CSVSQLApp(QMainWindow):
         self.query_status.clear()
         self.reset_result_table()
         self.update_source_tooltip()
+        self.set_active_query(None, saved=True)
 
     def export_csv(self):
         if self.result_table.rowCount() == 0:
@@ -834,7 +838,7 @@ class CSVSQLApp(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Save CSV",
-            "",
+            self.last_export_dir,
             "CSV Files (*.csv)"
         )
         if not path:
@@ -867,7 +871,7 @@ class CSVSQLApp(QMainWindow):
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Save PDF",
-            "",
+            self.last_export_dir,
             "PDF Files (*.pdf)"
         )
         if not path:
@@ -916,7 +920,8 @@ class CSVSQLApp(QMainWindow):
                 ("VALIGN", (0, 0), (-1, -1), "TOP")
             ]))
             pdf.build([table])
-            self.query_status.setText("PDF exported successfully")
+            self.remember_export_directory(path)
+            self.set_status("PDF exported successfully")
         except Exception as e:
             self.set_status(f"Error:\n{str(e)}")
         
@@ -1022,7 +1027,7 @@ class CSVSQLApp(QMainWindow):
             }
             with open(self.queries_path, "w", encoding="utf-8") as f:
                 json.dump(self.saved_queries, f, indent=2, ensure_ascii=False)
-                self.backup_saved_queries()
+            self.backup_saved_queries()
             self.set_active_query(final_name, saved=True)
             dialog.accept()
         
@@ -1245,6 +1250,7 @@ class CSVSQLApp(QMainWindow):
                     update_editor_query_tag()
                 with open(self.queries_path, "w", encoding="utf-8") as f:
                     json.dump(self.saved_queries, f, indent=2, ensure_ascii=False)
+                self.backup_saved_queries()
                 refresh_table()
     
         def refresh_table():
@@ -1319,6 +1325,7 @@ class CSVSQLApp(QMainWindow):
             self.saved_queries[new_name] = updated
             with open(self.queries_path, "w", encoding="utf-8") as f:
                 json.dump(self.saved_queries, f, indent=2, ensure_ascii=False)
+            self.backup_saved_queries()
             if self.current_query_name == old_name:
                 self.set_active_query(new_name, saved=True)
             notify(f"{new_name} edited")
@@ -1466,7 +1473,8 @@ class CSVSQLApp(QMainWindow):
             has_result = cursor.description is not None
             if has_result:
                 headers = [desc[0] for desc in cursor.description]
-                rows = cursor.fetchmany(getattr(self, "max_query_rows", 1000))
+                max_rows = getattr(self, "max_query_rows", 1000)
+                rows = cursor.fetchmany(max_rows)
                 self.populate_result_table(rows, headers)
                 self.result_table.horizontalHeader().setSectionResizeMode(
                     QHeaderView.ResizeMode.Interactive
@@ -1475,8 +1483,8 @@ class CSVSQLApp(QMainWindow):
                     f"Rows affected: {len(rows)} | Columns: {len(headers)}"
                 )
                 msg = f"Query executed successfully\nRows returned: {len(rows)}"
-                if len(rows) >= 1000:
-                    msg += "\nNote: Results limited to 1000 rows"
+                if len(rows) >= max_rows:
+                    msg += f"\nNote: Results limited to {max_rows} rows"
                 self.query_status.setText(msg)
             else:
                 conn.commit()
@@ -1495,7 +1503,7 @@ class CSVSQLApp(QMainWindow):
                 full_names = []
                 for table in sorted(set(tables_in_query)):
                     if table in self.tables:
-                        max_rows = len(self.tables[table])
+                        max_table_rows = len(self.tables[table])
                         display_name = next(
                             (
                                 k for k, v in self.name_map.items()
@@ -1505,7 +1513,7 @@ class CSVSQLApp(QMainWindow):
                         )
                         short_name = self.format_name(display_name)
                         self.source_info.addItem(
-                            f"{short_name} | Rows: {max_rows}"
+                            f"{short_name} | Rows: {max_table_rows}"
                         )
                         self.source_info.setItemData(
                             self.source_info.count() - 1,
@@ -1785,6 +1793,9 @@ class CSVSQLApp(QMainWindow):
                 return
             base_dir = os.path.dirname(os.path.abspath(__file__))
             json_path = os.path.join(base_dir, "sql_keywords.json")
+            backup_path = os.path.join(base_dir, "sql_keywords_backup.json")
+            if os.path.exists(json_path):
+                shutil.copy2(json_path, backup_path)
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(parsed, f, indent=2, ensure_ascii=False)
             self.keyword_data = parsed
@@ -1955,22 +1966,22 @@ class CSVSQLApp(QMainWindow):
                 )
         else:
             max_rows = min(len(df), 1000)
+            preview = df.head(max_rows).copy()
+            preview = preview.where(pd.notna(preview), "")
             self.csv_info.setRowCount(max_rows)
-            self.csv_info.setColumnCount(len(df.columns))
+            self.csv_info.setColumnCount(len(preview.columns))
             headers = [
                 reverse_cols.get(c, c)
-                for c in df.columns
+                for c in preview.columns
             ]
             self.csv_info.setHorizontalHeaderLabels(headers)
-            for i in range(max_rows):
-                for j in range(len(df.columns)):
-                    value = df.iat[i, j]
-                    if pd.isna(value):
-                        value = ""
+            values = preview.astype(str).values.tolist()
+            for i, row in enumerate(values):
+                for j, value in enumerate(row):
                     self.csv_info.setItem(
                         i,
                         j,
-                        QTableWidgetItem(str(value))
+                        QTableWidgetItem(value)
                     )
         self.csv_info.resizeColumnsToContents()
         
@@ -2029,10 +2040,8 @@ class CSVSQLApp(QMainWindow):
                 self.saved_queries[self.current_query_name] = saved_data
                 with open(self.queries_path, "w", encoding="utf-8") as f:
                     json.dump(self.saved_queries, f, indent=2, ensure_ascii=False)
-                self.set_active_query(
-                    self.current_query_name,
-                    saved=True
-                )
+                self.backup_saved_queries()
+                self.set_active_query(self.current_query_name, saved=True)
                 self.query_status.setText(
                     f"{self.current_query_name} saved"
                 )
@@ -2042,23 +2051,38 @@ class CSVSQLApp(QMainWindow):
         super().keyPressEvent(event)
         
     def closeEvent(self, event):
-        reply = QMessageBox.question(
-            self,
-            "Exit",
-            "Are you sure you want to close the application?",
-            QMessageBox.StandardButton.Ok |
-            QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Cancel
-        )
-        if reply == QMessageBox.StandardButton.Ok:
-            try:
-                if self.sqlite_conn:
-                    self.sqlite_conn.close()
-            except Exception:
-                pass
-            event.accept()
+        current_text = self.query_box.toPlainText().strip()
+        has_unsaved_changes = self.query_dirty and bool(current_text)
+        if has_unsaved_changes:
+            reply = QMessageBox.question(
+                self,
+                "Exit",
+                "You have unsaved changes. Are you sure you want to close the application?",
+                QMessageBox.StandardButton.Ok |
+                QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel
+            )
+            if reply != QMessageBox.StandardButton.Ok:
+                event.ignore()
+                return
         else:
-            event.ignore()
+            reply = QMessageBox.question(
+                self,
+                "Exit",
+                "Are you sure you want to close the application?",
+                QMessageBox.StandardButton.Ok |
+                QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel
+            )
+            if reply != QMessageBox.StandardButton.Ok:
+                event.ignore()
+                return
+        try:
+            if self.sqlite_conn:
+                self.sqlite_conn.close()
+        except Exception:
+            pass
+        event.accept()
 
 if __name__ == "__main__":
     app = QApplication.instance()
