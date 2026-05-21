@@ -212,7 +212,8 @@ class SQLTextEdit(QTextEdit):
                     elif content.startswith("--"):
                         content = content[2:]
                 else:
-                    content = "-- " + content
+                    if not content.startswith("--"):
+                        content = "-- " + content
                 updated.append(prefix + content)
             cursor.beginEditBlock()
             block = self.document().findBlockByNumber(start_block)
@@ -279,30 +280,8 @@ class SQLTextEdit(QTextEdit):
                 self.completer.popup().hide()
                 return
         if event.key() == Qt.Key.Key_Tab:
-            if self.textCursor().hasSelection():
-                cursor = self.textCursor()
-                start = cursor.selectionStart()
-                end = cursor.selectionEnd()
-                cursor.setPosition(start)
-                start_block = cursor.blockNumber()
-                cursor.setPosition(end)
-                if cursor.positionInBlock() == 0 and end > start:
-                    end_block = cursor.blockNumber() - 1
-                else:
-                    end_block = cursor.blockNumber()
-                cursor.beginEditBlock()
-                block = self.document().findBlockByNumber(start_block)
-                for _ in range(start_block, end_block + 1):
-                    block_cursor = QTextCursor(block)
-                    block_cursor.movePosition(
-                        QTextCursor.MoveOperation.StartOfBlock
-                    )
-                    block_cursor.insertText(" " * self.tab_width)
-                    block = block.next()
-                cursor.endEditBlock()
-                return
             if not self.completer:
-                self.insertPlainText(" " * self.tab_width)
+                super().keyPressEvent(event)
                 return
             tc = self.textCursor()
             tc.select(QTextCursor.SelectionType.WordUnderCursor)
@@ -345,52 +324,13 @@ class SQLTextEdit(QTextEdit):
                     cr.setWidth(max(150, popup_width))
                     self.completer.complete(cr)
                     return
-            self.insertPlainText(" " * self.tab_width)
-            return
-        if (
-            event.key() == Qt.Key.Key_Backtab and
-            self.textCursor().hasSelection()
-        ):
-            cursor = self.textCursor()
-            start = cursor.selectionStart()
-            end = cursor.selectionEnd()
-            cursor.setPosition(start)
-            start_block = cursor.blockNumber()
-            cursor.setPosition(end)
-            if cursor.positionInBlock() == 0 and end > start:
-                end_block = cursor.blockNumber() - 1
-            else:
-                end_block = cursor.blockNumber()
-            cursor.beginEditBlock()
-            block = self.document().findBlockByNumber(start_block)
-            for _ in range(start_block, end_block + 1):
-                text = block.text()
-                remove_count = min(
-                    self.tab_width,
-                    len(text) - len(text.lstrip(" "))
-                )
-                if remove_count > 0:
-                    block_cursor = QTextCursor(block)
-                    block_cursor.movePosition(
-                        QTextCursor.MoveOperation.StartOfBlock
-                    )
-                    for _ in range(remove_count):
-                        block_cursor.deleteChar()
-                block = block.next()
-            cursor.endEditBlock()
+            super().keyPressEvent(event)
             return
         if event.key() in (
             Qt.Key.Key_Return,
             Qt.Key.Key_Enter
         ):
-            current_line = self.get_current_line_text()
-            indent = self.get_indent(current_line)
-            if self.should_decrease_indent(current_line):
-                indent = max(0, indent - self.tab_width)
             super().keyPressEvent(event)
-            if self.should_increase_indent(current_line):
-                indent += self.tab_width
-            self.insertPlainText(" " * indent)
             return
         if event.key() == Qt.Key.Key_Home:
             cursor = self.textCursor()
@@ -454,7 +394,6 @@ class SQLTextEdit(QTextEdit):
                     )
                 self.setTextCursor(cursor)
                 return
-            
         super().keyPressEvent(event)
 
 class CSVSQLApp(QMainWindow):
