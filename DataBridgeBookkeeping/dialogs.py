@@ -115,6 +115,9 @@ class JournalEntryDialog(QDialog):
         self.add_line_btn=QPushButton(
             "Add Line"
         )
+        self.add_line_btn.clicked.connect(
+            self.add_line
+        )
         self.save_btn=QPushButton(
             "Post Entry"
         )
@@ -136,6 +139,12 @@ class JournalEntryDialog(QDialog):
         )     
         self.cancel_btn.clicked.connect(
             self.reject
+        )
+        
+    def add_line(self):
+        row=self.lines_table.rowCount()
+        self.lines_table.insertRow(
+            row
         )
 
 class BackupDialog(QDialog):

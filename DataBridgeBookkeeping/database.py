@@ -10,6 +10,7 @@ class DatabaseManager:
         self.connect()
         self.enable_foreign_keys()
         self.create_tables()
+        self.create_indexes()
 
     def connect(self):
         os.makedirs(
@@ -17,13 +18,17 @@ class DatabaseManager:
             exist_ok=True
         )
         self.conn=sqlite3.connect(
-            self.db_path
+            self.db_path,
+            check_same_thread=False
         )
         self.conn.row_factory=sqlite3.Row
 
     def enable_foreign_keys(self):
         self.conn.execute(
             "PRAGMA foreign_keys=ON"
+        )
+        self.conn.execute(
+            "PRAGMA journal_mode=WAL"
         )
 
     def execute(
@@ -32,11 +37,15 @@ class DatabaseManager:
         params=()
     ):
         cursor=self.conn.cursor()
-        cursor.execute(
-            query,
-            params
-        )
-        self.conn.commit()
+        try:
+            cursor.execute(
+                query,
+                params
+            )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
         return cursor
 
     def executemany(
@@ -45,11 +54,15 @@ class DatabaseManager:
         rows
     ):
         cursor=self.conn.cursor()
-        cursor.executemany(
-            query,
-            rows
-        )
-        self.conn.commit()
+        try:
+            cursor.executemany(
+                query,
+                rows
+            )
+            self.conn.commit()
+        except Exception:
+            self.conn.rollback()
+            raise
         return cursor
 
     def fetchone(
@@ -257,6 +270,28 @@ class DatabaseManager:
             total_price REAL DEFAULT 0
         )
         """)
+        
+    def create_indexes(self):
+        self.execute("""
+        CREATE INDEX IF NOT EXISTS idx_accounts_code
+        ON accounts(account_code)
+        """)
+        self.execute("""
+        CREATE INDEX IF NOT EXISTS idx_journal_entry_date
+        ON journal_entries(entry_date)
+        """)
+        self.execute("""
+        CREATE INDEX IF NOT EXISTS idx_journal_lines_account
+        ON journal_lines(account_id)
+        """)
+        self.execute("""
+        CREATE INDEX IF NOT EXISTS idx_journal_lines_entry
+        ON journal_lines(journal_entry_id)
+        """)
+        self.execute("""
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_created
+        ON audit_logs(created_at)
+        """)
 
     def log_action(
         self,
@@ -287,3 +322,14 @@ class DatabaseManager:
     def close(self):
         if self.conn:
             self.conn.close()
+            
+    def __enter__(self):
+        return self
+
+    def __exit__(
+        self,
+        exc_type,
+        exc_value,
+        traceback
+    ):
+        self.close()

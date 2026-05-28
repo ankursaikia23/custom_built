@@ -24,10 +24,32 @@ class ImportManager:
                 file_path,
                 engine="odf"
             )
-
         raise ValueError(
             "Unsupported file format"
         )
+        
+    def validate_columns(
+        self,
+        dataframe,
+        required_columns
+    ):
+        missing=[]
+        for column in required_columns:
+            if column not in dataframe.columns:
+                missing.append(column)
+        if missing:
+            raise ValueError(
+                "Missing required columns: "
+                + ", ".join(missing)
+            )
+            
+    def get_supported_formats(self):
+        return[
+            ".csv",
+            ".xlsx",
+            ".xls",
+            ".ods"
+        ]
 
     def import_chart_of_accounts(
         self,
@@ -36,13 +58,32 @@ class ImportManager:
         df=self.load_dataframe(
             file_path
         )
+        self.validate_columns(
+            df,
+            [
+                "account_code",
+                "account_name",
+                "account_type"
+            ]
+        )
         imported=0
         for _,row in df.iterrows():
+            account_code=str(
+                row["account_code"]
+            ).strip()
+            account_name=str(
+                row["account_name"]
+            ).strip()
+            account_type=str(
+                row["account_type"]
+            ).strip()
+            if not account_code:
+                continue
             existing=self.db.fetchone("""
             SELECT id
             FROM accounts
             WHERE account_code=?
-            """,(str(row["account_code"]),))
+            """,(account_code,))
             if existing:
                 continue
             self.db.execute("""
@@ -59,10 +100,11 @@ class ImportManager:
                 datetime('now')
             )
             """,(
-                str(row["account_code"]),
-                str(row["account_name"]),
-                str(row["account_type"])
+                account_code,
+                account_name,
+                account_type
             ))
+    
             imported+=1
         self.db.log_action(
             "IMPORT",
@@ -71,16 +113,35 @@ class ImportManager:
             f"Imported {imported} accounts"
         )
         return imported
-
+    
     def import_customers(
         self,
         file_path
     ):
         df=self.load_dataframe(
             file_path
-        )
+        )    
         imported=0
         for _,row in df.iterrows():
+            customer_name=str(row.get(
+                "customer_name",
+                ""
+            )).strip()
+            email=str(row.get(
+                "email",
+                ""
+            )).strip()
+            existing=self.db.fetchone("""
+            SELECT id
+            FROM customers
+            WHERE customer_name=?
+            AND email=?
+            """,(
+                customer_name,
+                email
+            ))
+            if existing:
+                continue
             self.db.execute("""
             INSERT INTO customers(
                 customer_name,
@@ -97,26 +158,20 @@ class ImportManager:
                 datetime('now')
             )
             """,(
-                str(row.get(
-                    "customer_name",
-                    ""
-                )),
+                customer_name,
                 str(row.get(
                     "phone",
                     ""
-                )),
-                str(row.get(
-                    "email",
-                    ""
-                )),
+                )).strip(),
+                email,
                 str(row.get(
                     "address",
                     ""
-                ))
+                )).strip()
             ))
             imported+=1
         return imported
-
+    
     def import_vendors(
         self,
         file_path
@@ -126,6 +181,25 @@ class ImportManager:
         )
         imported=0
         for _,row in df.iterrows():
+            vendor_name=str(row.get(
+                "vendor_name",
+                ""
+            )).strip()
+            email=str(row.get(
+                "email",
+                ""
+            )).strip()
+            existing=self.db.fetchone("""
+            SELECT id
+            FROM vendors
+            WHERE vendor_name=?
+            AND email=?
+            """,(
+                vendor_name,
+                email
+            ))
+            if existing:
+                continue
             self.db.execute("""
             INSERT INTO vendors(
                 vendor_name,
@@ -142,22 +216,16 @@ class ImportManager:
                 datetime('now')
             )
             """,(
-                str(row.get(
-                    "vendor_name",
-                    ""
-                )),
+                vendor_name,
                 str(row.get(
                     "phone",
                     ""
-                )),
-                str(row.get(
-                    "email",
-                    ""
-                )),
+                )).strip(),
+                email,
                 str(row.get(
                     "address",
                     ""
-                ))
+                )).strip()
             ))
             imported+=1
         return imported

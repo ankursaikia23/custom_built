@@ -3,6 +3,17 @@ import pandas as pd
 class ReportManager:
     def __init__(self,db):
         self.db=db
+        
+    def normalize_rows(
+        self,
+        rows
+    ):
+        normalized=[]
+        for row in rows:
+            normalized.append(
+                dict(row)
+            )
+        return normalized
 
     def get_trial_balance(self):
         return self.db.fetchall("""
@@ -81,14 +92,47 @@ class ReportManager:
         ON jl.account_id=a.id
         ORDER BY je.entry_date ASC
         """)
+        
+    def get_general_ledger_by_date(
+        self,
+        start_date,
+        end_date
+    ):
+        return self.db.fetchall("""
+        SELECT
+            je.entry_date,
+            je.entry_number,
+            a.account_code,
+            a.account_name,
+            jl.description,
+            jl.debit,
+            jl.credit
+        FROM journal_lines jl
+        JOIN journal_entries je
+        ON jl.journal_entry_id=je.id
+        JOIN accounts a
+        ON jl.account_id=a.id
+        WHERE je.entry_date
+        BETWEEN ? AND ?
+        ORDER BY je.entry_date ASC
+        """,(
+            start_date,
+            end_date
+        ))
 
     def get_cash_flow_summary(self):
         return self.db.fetchall("""
         SELECT
             a.account_code,
             a.account_name,
-            SUM(jl.debit) as cash_in,
-            SUM(jl.credit) as cash_out
+            COALESCE(
+                SUM(jl.debit),
+                0
+            ) as cash_in,
+            COALESCE(
+                SUM(jl.credit),
+                0
+            ) as cash_out
         FROM journal_lines jl
         JOIN accounts a
         ON jl.account_id=a.id
@@ -96,6 +140,7 @@ class ReportManager:
             a.account_name LIKE '%Cash%'
             OR a.account_name LIKE '%Bank%'
         GROUP BY a.id
+        ORDER BY a.account_code
         """)
 
     def get_account_summary(self):
@@ -116,6 +161,41 @@ class ReportManager:
         ORDER BY a.account_code
         """)
 
+    def get_account_balances(self):
+        rows=self.db.fetchall("""
+        SELECT
+            a.account_code,
+            a.account_name,
+            a.account_type,    
+            COALESCE(
+                SUM(jl.debit),
+                0
+            ) as total_debit,
+            COALESCE(
+                SUM(jl.credit),
+                0
+            ) as total_credit
+        FROM accounts a
+        LEFT JOIN journal_lines jl
+        ON a.id=jl.account_id
+        GROUP BY a.id
+        ORDER BY a.account_code
+        """)
+        balances=[]
+        for row in rows:
+            balances.append({
+                "account_code":
+                row["account_code"],
+                "account_name":
+                row["account_name"],
+                "account_type":
+                row["account_type"],
+                "balance":
+                float(row["total_debit"])-
+                float(row["total_credit"])
+            })
+        return balances
+
     def get_audit_logs(self):
         return self.db.fetchall("""
         SELECT
@@ -135,9 +215,6 @@ class ReportManager:
     ):
         if not rows:
             return pd.DataFrame()
-        normalized=[]
-        for row in rows:
-            normalized.append(
-                dict(row)
-            )
-        return pd.DataFrame(normalized)
+        return pd.DataFrame(
+            self.normalize_rows(rows)
+        )

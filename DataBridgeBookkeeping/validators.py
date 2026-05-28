@@ -1,3 +1,5 @@
+from datetime import datetime
+
 class TransactionValidator:
     @staticmethod
     def validate_journal_lines(lines):
@@ -24,15 +26,21 @@ class TransactionValidator:
 
     @staticmethod
     def validate_account_code(account_code):
-        return bool(
-            str(account_code).strip()
-        )
+        account_code=str(
+            account_code
+        ).strip()
+        if not account_code:
+            return False
+        return len(account_code)<=20
 
     @staticmethod
     def validate_account_name(account_name):
-        return bool(
-            str(account_name).strip()
-        )
+        account_name=str(
+            account_name
+        ).strip()
+        if not account_name:
+            return False
+        return len(account_name)<=100
 
     @staticmethod
     def validate_account_type(account_type):
@@ -47,13 +55,35 @@ class TransactionValidator:
 
     @staticmethod
     def validate_date(date_text):
-        parts=str(date_text).split("-")
-        if len(parts)!=3:
+        try:
+            datetime.strptime(
+                str(date_text),
+                "%Y-%m-%d"
+            )
+            return True
+        except:
             return False
-        return True
 
     @staticmethod
     def validate_reference(reference):
         return len(
             str(reference).strip()
         )<=100
+    
+    @staticmethod
+    def validate_journal_entry(
+        entry_number,
+        entry_date,
+        lines
+    ):
+        if not str(entry_number).strip():
+            return False
+        if not TransactionValidator.validate_date(
+            entry_date
+        ):
+            return False
+        if not lines:
+            return False
+        return TransactionValidator.validate_journal_lines(
+            lines
+        )

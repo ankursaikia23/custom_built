@@ -51,6 +51,52 @@ class DashboardManager:
             "total_invoices":
             invoices["total"]
         }
+            
+    def get_financial_overview(self):
+        income=self.db.fetchone("""
+        SELECT
+            COALESCE(
+                SUM(jl.credit-jl.debit),
+                0
+            ) as total
+        FROM journal_lines jl
+        JOIN accounts a
+        ON jl.account_id=a.id
+        WHERE a.account_type='Revenue'
+        """)
+        expenses=self.db.fetchone("""
+        SELECT
+            COALESCE(
+                SUM(jl.debit-jl.credit),
+                0
+            ) as total
+        FROM journal_lines jl
+        JOIN accounts a
+        ON jl.account_id=a.id
+        WHERE a.account_type='Expense'
+        """)
+        assets=self.db.fetchone("""
+        SELECT
+            COALESCE(
+                SUM(jl.debit-jl.credit),
+                0
+            ) as total
+        FROM journal_lines jl
+        JOIN accounts a
+        ON jl.account_id=a.id
+        WHERE a.account_type='Asset'
+        """)
+        return{
+            "income":
+            float(income["total"]),
+            "expenses":
+            float(expenses["total"]),
+            "net_profit":
+            float(income["total"])-
+            float(expenses["total"]),
+            "assets":
+            float(assets["total"])
+        }
 
     def get_recent_journal_entries(
         self,
@@ -61,6 +107,7 @@ class DashboardManager:
             id,
             entry_number,
             entry_date,
+            reference,
             description,
             total_debit,
             total_credit
@@ -72,6 +119,21 @@ class DashboardManager:
     def get_recent_audit_logs(
         self,
         limit=20
+    ):
+        return self.db.fetchall("""
+        SELECT
+            action_type,
+            table_name,
+            message,
+            created_at
+        FROM audit_logs
+        ORDER BY id DESC
+        LIMIT ?
+        """,(limit,))
+        
+    def get_recent_activity(
+        self,
+        limit=15
     ):
         return self.db.fetchall("""
         SELECT

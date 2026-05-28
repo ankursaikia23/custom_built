@@ -1,8 +1,10 @@
 from PyQt5.QtWidgets import(
     QWidget, QVBoxLayout, QLabel, QTableWidget, QTextEdit, QPushButton, QHBoxLayout, QFrame,
-    QListWidget, QLineEdit, QComboBox
+    QLineEdit, QComboBox, QTreeWidgetItem, QTreeWidget
 )
-
+#from PyQt5.QtWidgets import(
+#    QListWidget
+#)
 class DashboardWidget(QWidget):
     def __init__(self,parent=None):
         super().__init__(parent)
@@ -126,25 +128,33 @@ class ReportWidget(QWidget):
         )
 
 class NavigationWidget(QWidget):
-    def __init__(self,parent=None):
-        super().__init__(parent)
-        layout=QVBoxLayout(self)
-        self.navigation_list=QListWidget()
-        self.navigation_list.addItems([
-            "Dashboard",
-            "Chart of Accounts",
-            "Journal Entries",
-            "General Ledger",
-            "Trial Balance",
-            "Profit & Loss",
-            "Balance Sheet",
-            "Cash Flow",
-            "Customers",
-            "Vendors",
-            "Invoices",
-            "Audit Logs",
-            "Settings"
-        ])
-        layout.addWidget(
-            self.navigation_list
-        )
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout(self)
+        self.tree = QTreeWidget()
+        self.tree.setHeaderHidden(True)
+        dashboard = QTreeWidgetItem(["DASHBOARD"])
+        self.tree.addTopLevelItem(dashboard)
+        accounts = QTreeWidgetItem(["ACCOUNTS"])
+        self.tree.addTopLevelItem(accounts)
+        accounts.addChild(QTreeWidgetItem(["CHART OF ACCOUNTS"]))
+        accounts.addChild(QTreeWidgetItem(["NEW ACCOUNT"]))
+        accounts.addChild(QTreeWidgetItem(["QUICK ACCOUNT"]))
+        journal = QTreeWidgetItem(["JOURNAL"])
+        self.tree.addTopLevelItem(journal)
+        journal.addChild(QTreeWidgetItem(["JOURNAL ENTRIES"]))
+        journal.addChild(QTreeWidgetItem(["NEW JOURNAL ENTRY"]))
+        reports = QTreeWidgetItem(["REPORTS"])
+        self.tree.addTopLevelItem(reports)
+        reports.addChild(QTreeWidgetItem(["TRIAL BALANCE"]))
+        reports.addChild(QTreeWidgetItem(["PROFIT & LOSS"]))
+        reports.addChild(QTreeWidgetItem(["BALANCE SHEET"]))
+        reports.addChild(QTreeWidgetItem(["CASH FLOW"]))
+        reports.addChild(QTreeWidgetItem(["EXPORT REPORT"]))
+        system = QTreeWidgetItem(["SYSTEM"])
+        self.tree.addTopLevelItem(system)
+        system.addChild(QTreeWidgetItem(["IMPORT ACCOUNTS"]))
+        system.addChild(QTreeWidgetItem(["CREATE BACKUP"]))
+        system.addChild(QTreeWidgetItem(["MANAGE BACKUPS"]))
+        system.addChild(QTreeWidgetItem(["REFRESH"]))
+        layout.addWidget(self.tree)
