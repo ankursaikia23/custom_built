@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import(
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QTextEdit, QComboBox,
-    QTableWidget, QListWidget, QFileDialog, QDateEdit
+    QTableWidget, QListWidget, QFileDialog, QDateEdit, QTableWidgetItem, QHeaderView
 )
 
 class AccountDialog(QDialog):
@@ -19,8 +19,18 @@ class AccountDialog(QDialog):
             "Liability",
             "Equity",
             "Revenue",
-            "Expense"
+            "Expense",
+            "Custom"
         ])
+        self.custom_account_type=QLineEdit()
+        self.custom_account_type.setPlaceholderText(
+            "Enter custom account type"
+        )
+        self.custom_account_type.hide()
+        layout.addWidget(self.custom_account_type)
+        self.account_type.currentTextChanged.connect(
+            self.toggle_custom_account_type
+        )
         layout.addWidget(
             QLabel("Account Code")
         )
@@ -59,10 +69,17 @@ class AccountDialog(QDialog):
         self.cancel_btn.clicked.connect(
             self.reject
         )
+        
+    def toggle_custom_account_type(self,text):
+        if text=="Custom":
+            self.custom_account_type.show()
+        else:
+            self.custom_account_type.hide()
 
 class JournalEntryDialog(QDialog):
     def __init__(self,parent=None):
         super().__init__(parent)
+        self.parent_app=parent
         self.setWindowTitle(
             "Journal Entry"
         )
@@ -76,14 +93,18 @@ class JournalEntryDialog(QDialog):
         )
         self.description=QTextEdit()
         self.lines_table=QTableWidget()
-        self.lines_table.setColumnCount(5)
+        self.lines_table.setColumnCount(6)
         self.lines_table.setHorizontalHeaderLabels([
-            "Account ID",
+            "Account",
             "Description",
             "Debit",
             "Credit",
-            "Notes"
+            "Notes",
+            "Remove"
         ])
+        self.lines_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.Stretch
+        )
         layout.addWidget(
             QLabel("Entry Number")
         )
@@ -143,9 +164,32 @@ class JournalEntryDialog(QDialog):
         
     def add_line(self):
         row=self.lines_table.rowCount()
-        self.lines_table.insertRow(
-            row
+        self.lines_table.insertRow(row)
+        account_dropdown=QComboBox()
+        if self.parent_app:
+            accounts=self.parent_app.accounts.get_all_accounts()
+            for account in accounts:
+                account_dropdown.addItem(
+                    f"{account['id']} - {account['account_name']}",
+                    account["id"]
+                )
+        self.lines_table.setCellWidget(
+            row,
+            0,
+            account_dropdown
         )
+        remove_btn=QPushButton("X")
+        remove_btn.clicked.connect(
+            lambda _, r=row: self.remove_line(r)
+        )
+        self.lines_table.setCellWidget(
+            row,
+            5,
+            remove_btn
+        )
+        
+    def remove_line(self,row):
+        self.lines_table.removeRow(row)
 
 class BackupDialog(QDialog):
     def __init__(self,parent=None):

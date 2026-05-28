@@ -44,14 +44,9 @@ class TransactionValidator:
 
     @staticmethod
     def validate_account_type(account_type):
-        valid_types=[
-            "Asset",
-            "Liability",
-            "Equity",
-            "Revenue",
-            "Expense"
-        ]
-        return account_type in valid_types
+        if not account_type:
+            return False
+        return len(account_type.strip())>0
 
     @staticmethod
     def validate_date(date_text):

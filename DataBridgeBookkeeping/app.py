@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import(
     QMainWindow, QWidget, QHBoxLayout, QSplitter, QStackedWidget, QTableWidget,
     QTableWidgetItem, QFileDialog, QAbstractItemView, QMessageBox, QHeaderView,
-    QInputDialog, QStatusBar, QMenu, QPushButton, QFrame, QVBoxLayout, QAction
+    QInputDialog, QStatusBar, QMenu, QPushButton, QFrame, QVBoxLayout, QAction,
+    QComboBox
 )
 from PyQt5.QtGui import QKeySequence
 # from PyQt5.QtWidgets import QVBoxLayout, QAction, QToolBar
@@ -132,6 +133,19 @@ class BookkeepingApp(QMainWindow):
         self.splitter.addWidget(self.right_container)
         self.main_layout.addWidget(self.splitter)
         self.navigation.tree.itemClicked.connect(self.handle_sidebar_click)
+        self.accounts_page.doubleClicked.connect(
+            lambda: self.open_accounts_context_menu(
+                self.accounts_page.viewport().rect().center()
+            )
+        )        
+        self.journal_page.doubleClicked.connect(
+            lambda: self.open_journal_context_menu(
+                self.journal_page.viewport().rect().center()
+            )
+        )
+        self.pages.currentChanged.connect(
+            lambda _: self.update_action_bar()
+        )
         self.update_action_bar()
         self.save_shortcut=QAction(self)
         self.save_shortcut.setShortcut(QKeySequence("Ctrl+S"))
@@ -140,27 +154,36 @@ class BookkeepingApp(QMainWindow):
         
     def update_action_bar(self):
         if hasattr(self,"action_buttons"):
+            current_page=self.pages.currentIndex()    
             page_config={
-                0:["REFRESH"],
-                1:["REFRESH","ADD","EDIT","DELETE"],
-                2:["REFRESH","ADD","EDIT","DELETE"],
+                0:["REFRESH","ADD","DELETE"],
+                1:["REFRESH","ADD","DELETE"],
+                2:["REFRESH","ADD","DELETE"],
                 3:["REFRESH"],
                 4:["REFRESH"],
                 5:["REFRESH"],
                 6:["REFRESH"],
                 7:["REFRESH"],
                 8:["REFRESH"],
-                9:["REFRESH","ADD","EDIT","DELETE"],
-                10:["REFRESH","ADD","EDIT","DELETE"],
-                11:["REFRESH","ADD","EDIT","DELETE"],
+                9:["REFRESH","ADD","DELETE"],
+                10:["REFRESH","ADD","DELETE"],
+                11:["REFRESH","ADD","DELETE"],
                 12:["REFRESH"]
             }
             enabled_buttons=page_config.get(
-                self.pages.currentIndex(),
+                current_page,
                 ["REFRESH"]
             )
+            has_rows=False
+            current_widget=self.pages.currentWidget()
+            if hasattr(current_widget,"rowCount"):
+                has_rows=current_widget.rowCount()>0
             for name,button in self.action_buttons.items():
-                if name=="SAVE":
+                if name=="DELETE":
+                    button.setEnabled(
+                        name in enabled_buttons and has_rows
+                    )
+                elif name=="SAVE":
                     save_allowed=name in enabled_buttons
                     button.setEnabled(
                         save_allowed and self.unsaved_changes
@@ -170,7 +193,9 @@ class BookkeepingApp(QMainWindow):
                     else:
                         button.setText("SAVE")
                 else:
-                    button.setEnabled(name in enabled_buttons)
+                    button.setEnabled(
+                        name in enabled_buttons
+                    )
             return
         self.action_bar=QFrame()
         layout=QHBoxLayout(self.action_bar)
@@ -179,7 +204,6 @@ class BookkeepingApp(QMainWindow):
         button_map={
             "REFRESH":self.refresh_all,
             "ADD":self.global_add,
-            "EDIT":self.global_edit,
             "SAVE":self.global_save,
             "DELETE":self.global_delete
         }
@@ -209,7 +233,10 @@ class BookkeepingApp(QMainWindow):
         container_layout=QVBoxLayout(self.action_bar_container)
         container_layout.setContentsMargins(0,0,0,0)
         container_layout.addWidget(self.action_bar)
-        self.right_panel.insertWidget(0,self.action_bar_container)
+        self.right_panel.insertWidget(
+            0,
+            self.action_bar_container
+        )
         self.update_action_bar()
         
     def set_unsaved_changes(self,state=True):
@@ -220,19 +247,14 @@ class BookkeepingApp(QMainWindow):
         
     def global_add(self):
         index=self.pages.currentIndex()    
-        if index==1:
+        if index==0:
+            self.open_journal_dialog()    
+        elif index==1:
             self.open_account_dialog()
         elif index==2:
             self.open_journal_dialog()
         elif index in [9,10,11]:
             QMessageBox.information(self,"Info","Module not implemented yet")
-            
-    def global_edit(self):
-        index=self.pages.currentIndex()    
-        if index==1:
-            self.open_accounts_context_menu(self.accounts_page.viewport().rect().center())
-        elif index==2:
-            self.open_journal_context_menu(self.journal_page.viewport().rect().center())
             
     def global_save(self):
         if not self.unsaved_changes:
@@ -254,6 +276,33 @@ class BookkeepingApp(QMainWindow):
 
     def global_delete(self):
         index=self.pages.currentIndex()
+        if index==0:
+            table=self.dashboard_page.recent_entries_table
+            row=table.currentRow()        
+            if row<0:
+                row=0
+            journal_entry_number=table.item(row,0).text()
+            entries=self.journal.get_all_journal_entries()
+            for entry in entries:
+                if str(entry["entry_number"])==journal_entry_number:
+                    confirm=QMessageBox.question(
+                        self,
+                        "Delete Journal Entry",
+                        "Delete selected journal entry?"
+                    )
+                    if confirm!=QMessageBox.Yes:
+                        return
+                    self.journal.delete_journal_entry(
+                        entry["id"]
+                    )
+                    self.load_journal_table()
+                    self.load_dashboard_recent_entries()
+                    self.refresh_dashboard()
+        
+                    self.statusbar.showMessage(
+                        "Journal entry deleted successfully"
+                    )
+                    return
         if index==1:
             row=self.accounts_page.currentRow()
             if row<0:
@@ -523,6 +572,7 @@ class BookkeepingApp(QMainWindow):
                 )
             )
         self.loading_data=False
+        self.update_action_bar()
     
     def open_accounts_context_menu(self,position):
         row=self.accounts_page.currentRow()
@@ -575,15 +625,32 @@ class BookkeepingApp(QMainWindow):
             dialog.account_name.setText(
                 account_name
             )
-            dialog.account_type.setCurrentText(
-                account_type
-            )
+            if account_type in [
+                "Asset",
+                "Liability",
+                "Equity",
+                "Revenue",
+                "Expense"
+            ]:
+                dialog.account_type.setCurrentText(
+                    account_type
+                )
+            else:
+                dialog.account_type.setCurrentText(
+                    "Custom"
+                )
+                dialog.custom_account_type.setText(
+                    account_type
+                )
+                dialog.custom_account_type.show()
             result=dialog.exec_()
             if not result:
                 return
             code=dialog.account_code.text().strip()
             name=dialog.account_name.text().strip()
             acc_type=dialog.account_type.currentText()
+            if acc_type=="Custom":
+                acc_type=dialog.custom_account_type.text().strip()
             if not code or not name:
                 QMessageBox.warning(
                     self,
@@ -700,6 +767,7 @@ class BookkeepingApp(QMainWindow):
                 )
             )
         self.loading_data=False
+        self.update_action_bar()
             
     def open_journal_context_menu(self,position):
         row=self.journal_page.currentRow()
@@ -776,12 +844,23 @@ class BookkeepingApp(QMainWindow):
             len(lines)
         )
         for row_index,line in enumerate(lines):
-            dialog.lines_table.setItem(
+            account_dropdown=QComboBox()
+            accounts=self.accounts.get_all_accounts()
+            selected_index=0
+            for index,account in enumerate(accounts):
+                account_dropdown.addItem(
+                    f"{account['id']} - {account['account_name']}",
+                    account["id"]
+                )
+                if account["id"]==line["account_id"]:
+                    selected_index=index
+            account_dropdown.setCurrentIndex(
+                selected_index
+            )
+            dialog.lines_table.setCellWidget(
                 row_index,
                 0,
-                QTableWidgetItem(
-                    str(line["account_id"])
-                )
+                account_dropdown
             )
             dialog.lines_table.setItem(
                 row_index,
@@ -812,11 +891,11 @@ class BookkeepingApp(QMainWindow):
             for row in range(
                 dialog.lines_table.rowCount()
             ):
-                account_item=dialog.lines_table.item(
+                account_widget=dialog.lines_table.cellWidget(
                     row,
                     0
                 )
-                if not account_item:
+                if not account_widget:
                     continue
                 description_item=dialog.lines_table.item(
                     row,
@@ -832,7 +911,7 @@ class BookkeepingApp(QMainWindow):
                 )
                 updated_lines.append({
                     "account_id":
-                    int(account_item.text()),
+                    account_widget.currentData(),
                     "description":
                     description_item.text()
                     if description_item
@@ -1047,6 +1126,8 @@ class BookkeepingApp(QMainWindow):
         code=dialog.account_code.text().strip()
         name=dialog.account_name.text().strip()
         account_type=dialog.account_type.currentText()
+        if account_type=="Custom":
+            account_type=dialog.custom_account_type.text().strip()
         if not TransactionValidator.validate_account_code(
             code
         ):
@@ -1109,7 +1190,7 @@ class BookkeepingApp(QMainWindow):
             for row in range(
                 dialog.lines_table.rowCount()
             ):
-                account_item=dialog.lines_table.item(
+                account_widget=dialog.lines_table.cellWidget(
                     row,
                     0
                 )
@@ -1125,11 +1206,11 @@ class BookkeepingApp(QMainWindow):
                     row,
                     3
                 )
-                if not account_item:
+                if not account_widget:
                     continue
                 lines.append({
                     "account_id":
-                    int(account_item.text()),
+                    account_widget.currentData(),
                     "description":
                     description_item.text()
                     if description_item
@@ -1433,6 +1514,7 @@ class BookkeepingApp(QMainWindow):
         }
         if text in nav_map:
             self.pages.setCurrentIndex(nav_map[text])
+            self.update_action_bar()
             return
         action_map={
             "NEW ACCOUNT":self.open_account_dialog,
