@@ -2,8 +2,9 @@ from PyQt5.QtWidgets import(
     QMainWindow, QWidget, QHBoxLayout, QSplitter, QStackedWidget, QTableWidget,
     QTableWidgetItem, QFileDialog, QAbstractItemView, QMessageBox, QHeaderView,
     QInputDialog, QStatusBar, QMenu, QPushButton, QFrame, QVBoxLayout, QAction,
-    QComboBox
+    QComboBox, QToolButton, QDialog, QDateEdit, QFormLayout, QDialogButtonBox
 )
+from PyQt5.QtCore import QDate
 from PyQt5.QtGui import QKeySequence
 # from PyQt5.QtWidgets import QVBoxLayout, QAction, QToolBar
 from database import DatabaseManager
@@ -25,6 +26,49 @@ from widgets import(
     DashboardWidget, NavigationWidget, ReportWidget
 )
 from validators import TransactionValidator
+
+class DateFilterDialog(QDialog):
+    def __init__(self,parent=None):    
+        super().__init__(parent)
+        self.setWindowTitle(
+            "Custom Date Filter"
+        )
+        layout=QFormLayout(self)
+        self.from_date=QDateEdit()
+        self.to_date=QDateEdit()
+        self.from_date.setCalendarPopup(
+            True
+        )
+        self.to_date.setCalendarPopup(
+            True
+        )
+        self.from_date.setDate(
+            QDate.currentDate().addMonths(-1)
+        )
+        self.to_date.setDate(
+            QDate.currentDate()
+        )
+        layout.addRow(
+            "From",
+            self.from_date
+        )
+        layout.addRow(
+            "To",
+            self.to_date
+        )
+        buttons=QDialogButtonBox(
+            QDialogButtonBox.Ok|
+            QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(
+            self.accept
+        )
+        buttons.rejected.connect(
+            self.reject
+        )
+        layout.addWidget(
+            buttons
+        )
 
 class BookkeepingApp(QMainWindow):
     def __init__(self):
@@ -64,6 +108,7 @@ class BookkeepingApp(QMainWindow):
         )
         self.unsaved_changes=False
         self.loading_data=False
+        self.accounts_filter="all"
         self.resize(1600,900)
         self.init_ui()
         self.initialize_demo_data()
@@ -156,32 +201,36 @@ class BookkeepingApp(QMainWindow):
         if hasattr(self,"action_buttons"):
             current_page=self.pages.currentIndex()    
             page_config={
-                0:["REFRESH","ADD","DELETE"],
-                1:["REFRESH","ADD","DELETE"],
-                2:["REFRESH","ADD","DELETE"],
+                0:["REFRESH","ADD","SELECT","FILTER"],
+                1:["REFRESH","ADD","SELECT","FILTER"],
+                2:["REFRESH","ADD","SELECT","FILTER"],
                 3:["REFRESH"],
                 4:["REFRESH"],
                 5:["REFRESH"],
                 6:["REFRESH"],
                 7:["REFRESH"],
                 8:["REFRESH"],
-                9:["REFRESH","ADD","DELETE"],
-                10:["REFRESH","ADD","DELETE"],
-                11:["REFRESH","ADD","DELETE"],
+                9:["REFRESH","ADD","SELECT"],
+                10:["REFRESH","ADD","SELECT"],
+                11:["REFRESH","ADD","SELECT"],
                 12:["REFRESH"]
             }
             enabled_buttons=page_config.get(
                 current_page,
                 ["REFRESH"]
             )
-            has_rows=False
-            current_widget=self.pages.currentWidget()
-            if hasattr(current_widget,"rowCount"):
-                has_rows=current_widget.rowCount()>0
+            select_pages=[
+                0,
+                1,
+                2,
+                9,
+                10,
+                11
+            ]
             for name,button in self.action_buttons.items():
-                if name=="DELETE":
+                if name=="FILTER":
                     button.setEnabled(
-                        name in enabled_buttons and has_rows
+                        name in enabled_buttons
                     )
                 elif name=="SAVE":
                     save_allowed=name in enabled_buttons
@@ -192,6 +241,10 @@ class BookkeepingApp(QMainWindow):
                         button.setText("SAVE *")
                     else:
                         button.setText("SAVE")
+                elif name=="SELECT":
+                    button.setEnabled(
+                        current_page in select_pages
+                    )
                 else:
                     button.setEnabled(
                         name in enabled_buttons
@@ -204,8 +257,8 @@ class BookkeepingApp(QMainWindow):
         button_map={
             "REFRESH":self.refresh_all,
             "ADD":self.global_add,
-            "SAVE":self.global_save,
-            "DELETE":self.global_delete
+            "FILTER":self.open_filter_menu,
+            "SAVE":self.global_save
         }
         self.action_buttons={}
         for text,func in button_map.items():
@@ -226,10 +279,62 @@ class BookkeepingApp(QMainWindow):
                 background:#9e9e9e;
                 color:#e0e0e0;
             }
-            """)
+            """)    
             btn.clicked.connect(func)
             layout.addWidget(btn,1)
+            layout.update()
+            self.action_bar.update()
             self.action_buttons[text]=btn
+            if text=="ADD" and "SELECT" not in self.action_buttons:
+                select_btn=QToolButton()
+                select_btn.setSizePolicy(
+                    QPushButton().sizePolicy()
+                )
+                select_btn.setText("SELECT")
+                select_btn.setMinimumHeight(36)
+                select_btn.setToolButtonStyle(
+                    0
+                )
+                select_btn.setStyleSheet("""
+                QToolButton{
+                    background:#1e88e5;
+                    color:white;
+                    font-weight:bold;
+                    padding:8px 16px;
+                    border-radius:4px;
+                }
+                QToolButton:hover{
+                    background:#1565c0;
+                }
+                QToolButton:menu-indicator{
+                    image:none;
+                }
+                """)
+                menu=QMenu(self)
+                menu.addAction(
+                    "Select All",
+                    self.select_all_entries
+                )
+                menu.addAction(
+                    "Select None",
+                    self.select_none_entries
+                )
+                menu.addAction(
+                    "Select Alternate",
+                    self.select_alternate_entries
+                )
+                select_btn.setMenu(menu)
+                select_btn.setPopupMode(
+                    QToolButton.InstantPopup
+                )
+                layout.addWidget(
+                    select_btn,
+                    1
+                )            
+                select_btn.setMinimumWidth(
+                    btn.minimumWidth()
+                )
+                self.action_buttons["SELECT"]=select_btn
         container_layout=QVBoxLayout(self.action_bar_container)
         container_layout.setContentsMargins(0,0,0,0)
         container_layout.addWidget(self.action_bar)
@@ -273,80 +378,252 @@ class BookkeepingApp(QMainWindow):
             self.refresh_dashboard()
         except Exception as e:
             QMessageBox.warning(self,"Save Error",str(e))
+            
+    def open_filter_menu(self):
+        current_page=self.pages.currentIndex()
+        menu=QMenu(self)
+        if current_page==1:
+            menu.addAction(
+                "Activated Accounts",
+                lambda:self.filter_accounts(True)
+            )
+            menu.addAction(
+                "Deactivated Accounts",
+                lambda:self.filter_accounts(False)
+            )
+            menu.addAction(
+                "Show All Accounts",
+                self.show_all_accounts
+            )
+        elif current_page==2:
+            menu.addAction(
+                "Today",
+                lambda:self.filter_journal("today")
+            )
+            menu.addAction(
+                "This Week",
+                lambda:self.filter_journal("week")
+            )
+            menu.addAction(
+                "This Month",
+                lambda:self.filter_journal("month")
+            )
+            menu.addAction(
+                "This Year",
+                lambda:self.filter_journal("year")
+            )
+            menu.addSeparator()
+            menu.addAction(
+                "Custom Date Range",
+                self.open_custom_date_filter
+            )
+            menu.addAction(
+                "Show All Journal Entries",
+                self.show_all_journal_entries
+            )
+        menu.exec_(
+            self.sender().mapToGlobal(
+                self.sender().rect().bottomLeft()
+            )
+        )
 
     def global_delete(self):
         index=self.pages.currentIndex()
         if index==0:
             table=self.dashboard_page.recent_entries_table
-            row=table.currentRow()        
-            if row<0:
-                row=0
-            journal_entry_number=table.item(row,0).text()
-            entries=self.journal.get_all_journal_entries()
-            for entry in entries:
-                if str(entry["entry_number"])==journal_entry_number:
-                    confirm=QMessageBox.question(
-                        self,
-                        "Delete Journal Entry",
-                        "Delete selected journal entry?"
-                    )
-                    if confirm!=QMessageBox.Yes:
-                        return
-                    self.journal.delete_journal_entry(
-                        entry["id"]
-                    )
-                    self.load_journal_table()
-                    self.load_dashboard_recent_entries()
-                    self.refresh_dashboard()
-        
-                    self.statusbar.showMessage(
-                        "Journal entry deleted successfully"
-                    )
-                    return
-        if index==1:
-            row=self.accounts_page.currentRow()
-            if row<0:
+            selected_rows=table.selectionModel().selectedRows()
+            if not selected_rows:
                 return
-            account_id=int(
-                self.accounts_page.item(row,0).text()
-            )
             confirm=QMessageBox.question(
                 self,
-                "Delete Account",
-                "Delete selected account?"
+                "Master Delete",
+                f"Delete {len(selected_rows)} selected journal entrie(s)?"
             )
             if confirm!=QMessageBox.Yes:
                 return
-            self.accounts.delete_account(
-                account_id
+            entries=self.journal.get_all_journal_entries()
+            for selected in selected_rows:
+                row=selected.row()
+                journal_entry_number=table.item(row,0).text()
+                for entry in entries:
+                    if str(entry["entry_number"])==journal_entry_number:
+                        self.journal.delete_journal_entry(
+                            entry["id"]
+                        )
+            self.load_journal_table()
+            self.load_dashboard_recent_entries()
+            self.refresh_dashboard()
+            self.statusbar.showMessage(
+                "Selected journal entries deleted successfully"
             )
+        elif index==1:
+            table=self.accounts_page
+            selected_rows=table.selectionModel().selectedRows()
+            if not selected_rows:
+                return
+            confirm=QMessageBox.question(
+                self,
+                "Master Delete",
+                f"Delete {len(selected_rows)} selected account(s)?"
+            )
+            if confirm!=QMessageBox.Yes:
+                return
+            for selected in selected_rows:
+                row=selected.row()
+                account_id=int(
+                    table.item(row,0).text()
+                )
+                self.accounts.delete_account(
+                    account_id
+                )
             self.load_accounts_table()
             self.refresh_dashboard()
             self.statusbar.showMessage(
-                "Account deleted successfully"
+                "Selected accounts deleted successfully"
             )
         elif index==2:
-            row=self.journal_page.currentRow()
-            if row<0:
+            table=self.journal_page
+            selected_rows=table.selectionModel().selectedRows()
+            if not selected_rows:
                 return
-            journal_entry_id=int(
-                self.journal_page.item(row,0).text()
-            )
             confirm=QMessageBox.question(
                 self,
-                "Delete Journal Entry",
-                "Delete selected journal entry?"
+                "Master Delete",
+                f"Delete {len(selected_rows)} selected journal entrie(s)?"
             )
             if confirm!=QMessageBox.Yes:
                 return
-            self.journal.delete_journal_entry(
-                journal_entry_id
-            )
+            for selected in selected_rows:
+                row=selected.row()
+                journal_entry_id=int(
+                    table.item(row,0).text()
+                )
+                self.journal.delete_journal_entry(
+                    journal_entry_id
+                )
             self.load_journal_table()
             self.refresh_dashboard()
             self.statusbar.showMessage(
-                "Journal entry deleted successfully"
+                "Selected journal entries deleted successfully"
             )
+            
+    def get_current_table(self):
+        current_page=self.pages.currentIndex()
+        if current_page==0:
+            return self.dashboard_page.recent_entries_table
+        if current_page==1:
+            return self.accounts_page
+        if current_page==2:
+            return self.journal_page
+        if current_page==9:
+            return self.customers_page
+        if current_page==10:
+            return self.vendors_page
+        if current_page==11:
+            return self.invoices_page
+        return None
+    
+    def select_all_entries(self):
+        table=self.get_current_table()
+        if not table:
+            return
+        table.selectAll()
+    
+    def select_none_entries(self):
+        table=self.get_current_table()
+        if not table:
+            return
+        table.clearSelection()
+    
+    def select_alternate_entries(self):
+        table=self.get_current_table()
+        if not table:
+            return
+        table.clearSelection()
+        table.setSelectionMode(
+            QAbstractItemView.MultiSelection
+        )
+        for row in range(0,table.rowCount(),2):
+            table.selectRow(row)
+        table.setSelectionMode(
+            QAbstractItemView.ExtendedSelection
+        )
+
+    def activate_selected_accounts(self):    
+        selected_rows=self.accounts_page.selectionModel().selectedRows()
+        if not selected_rows:
+            return
+        confirm=QMessageBox.question(
+            self,
+            "Activate Accounts",
+            f"Activate {len(selected_rows)} selected account(s)?"
+        )
+        if confirm!=QMessageBox.Yes:
+            return
+        for selected in selected_rows:
+            account_id=int(
+                self.accounts_page.item(
+                    selected.row(),
+                    0
+                ).text()
+            )
+            self.accounts.activate_account(
+                account_id
+            )
+        self.load_accounts_table()
+        self.refresh_dashboard()
+    
+    def deactivate_selected_accounts(self):
+        selected_rows=self.accounts_page.selectionModel().selectedRows()
+        if not selected_rows:
+            return
+        confirm=QMessageBox.question(
+            self,
+            "Deactivate Accounts",
+            f"Deactivate {len(selected_rows)} selected account(s)?"
+        )
+        if confirm!=QMessageBox.Yes:
+            return
+        for selected in selected_rows:
+            account_id=int(
+                self.accounts_page.item(
+                    selected.row(),
+                    0
+                ).text()
+            )
+            self.accounts.deactivate_account(
+                account_id
+            )
+        self.load_accounts_table()
+        self.refresh_dashboard()
+    
+    def delete_selected_accounts(self):
+        selected_rows=self.accounts_page.selectionModel().selectedRows()
+        if not selected_rows:
+            return
+        confirm=QMessageBox.question(
+            self,
+            "Delete Accounts",
+            f"Delete {len(selected_rows)} selected account(s)?"
+        )
+        if confirm!=QMessageBox.Yes:
+            return
+        rows=sorted(
+            [r.row() for r in selected_rows],
+            reverse=True
+        )
+        for row in rows:
+            account_id=int(
+                self.accounts_page.item(
+                    row,
+                    0
+                ).text()
+            )
+            self.accounts.delete_account(
+                account_id
+            )
+        self.load_accounts_table()
+        self.refresh_dashboard()
 
     def create_statusbar(self):
         self.statusbar=QStatusBar()
@@ -573,13 +850,250 @@ class BookkeepingApp(QMainWindow):
             )
         self.loading_data=False
         self.update_action_bar()
+        
+    def filter_accounts(self,active_state):
+        self.accounts_filter=(
+            "active"
+            if active_state
+            else "inactive"
+        )
+        self.loading_data=True
+        rows=self.accounts.get_all_accounts()
+        filtered=[]
+        for row in rows:
+            status=str(
+                row["is_active"]
+            )
+            if active_state and status=="1":
+                filtered.append(row)
+            elif not active_state and status!="1":
+                filtered.append(row)
+        self.accounts_page.setRowCount(
+            len(filtered)
+        )
+        for row_index,row in enumerate(filtered):
+            self.accounts_page.setItem(
+                row_index,
+                0,
+                QTableWidgetItem(
+                    str(row["id"])
+                )
+            )
+            self.accounts_page.setItem(
+                row_index,
+                1,
+                QTableWidgetItem(
+                    str(row["account_code"])
+                )
+            )
+            self.accounts_page.setItem(
+                row_index,
+                2,
+                QTableWidgetItem(
+                    str(row["account_name"])
+                )
+            )
+            self.accounts_page.setItem(
+                row_index,
+                3,
+                QTableWidgetItem(
+                    str(row["account_type"])
+                )
+            )
+            self.accounts_page.setItem(
+                row_index,
+                4,
+                QTableWidgetItem(
+                    str(row["is_active"])
+                )
+            )
+        self.loading_data=False
+    
+    def show_all_accounts(self):
+        self.accounts_filter="all"
+        self.load_accounts_table()
+        
+    def filter_journal(self,period):
+        rows=self.journal.get_all_journal_entries()
+        today=QDate.currentDate()
+        filtered=[]
+        for row in rows:
+            row_date=QDate.fromString(
+                str(row["entry_date"]),
+                "yyyy-MM-dd"
+            )
+            include=False
+            if period=="today":
+                include=row_date==today
+            elif period=="week":
+                include=(
+                    row_date.weekNumber()[0]
+                    ==
+                    today.weekNumber()[0]
+                    and
+                    row_date.year()
+                    ==
+                    today.year()
+                )
+            elif period=="month":
+                include=(
+                    row_date.month()
+                    ==
+                    today.month()
+                    and
+                    row_date.year()
+                    ==
+                    today.year()
+                )
+            elif period=="year":
+                include=(
+                    row_date.year()
+                    ==
+                    today.year()
+                )
+            if include:
+                filtered.append(row)
+        self.populate_filtered_journal(
+            filtered
+        )
+    
+    def open_custom_date_filter(self):
+        dialog=DateFilterDialog(self)
+        if not dialog.exec_():
+            return
+        self.filter_journal_range(
+            dialog.from_date.date(),
+            dialog.to_date.date()
+        )
+    
+    def filter_journal_range(
+        self,
+        from_date,
+        to_date
+    ):
+        rows=self.journal.get_all_journal_entries()
+        filtered=[]
+        for row in rows:
+            row_date=QDate.fromString(
+                str(row["entry_date"]),
+                "yyyy-MM-dd"
+            )
+            if from_date<=row_date<=to_date:
+                filtered.append(row)
+        self.populate_filtered_journal(
+            filtered
+        )
+        
+    def show_all_journal_entries(self):
+        self.load_journal_table()
+    
+    def populate_filtered_journal(
+        self,
+        rows
+    ):
+        self.journal_page.setRowCount(
+            len(rows)
+        )
+        for row_index,row in enumerate(rows):
+            self.journal_page.setItem(
+                row_index,
+                0,
+                QTableWidgetItem(
+                    str(row["id"])
+                )
+            )
+            self.journal_page.setItem(
+                row_index,
+                1,
+                QTableWidgetItem(
+                    str(row["entry_number"])
+                )
+            )
+            self.journal_page.setItem(
+                row_index,
+                2,
+                QTableWidgetItem(
+                    str(row["entry_date"])
+                )
+            )
+            self.journal_page.setItem(
+                row_index,
+                3,
+                QTableWidgetItem(
+                    str(row["reference"])
+                )
+            )
+            self.journal_page.setItem(
+                row_index,
+                4,
+                QTableWidgetItem(
+                    str(row["description"])
+                )
+            )
+            self.journal_page.setItem(
+                row_index,
+                5,
+                QTableWidgetItem(
+                    str(row["total_debit"])
+                )
+            )
+            self.journal_page.setItem(
+                row_index,
+                6,
+                QTableWidgetItem(
+                    str(row["total_credit"])
+                )
+            )
     
     def open_accounts_context_menu(self,position):
+        selected_rows=self.accounts_page.selectionModel().selectedRows()
+        if len(selected_rows)>1:
+            menu=QMenu()
+            current_filter=getattr(
+                self,
+                "accounts_filter",
+                "all"
+            )
+            if current_filter=="all":
+                QMessageBox.information(
+                    self,
+                    "Filter Required",
+                    "Filter by Activated or Deactivated accounts before performing bulk actions."
+                )
+                return
+            activate_action=None
+            deactivate_action=None
+            if current_filter=="active":
+                deactivate_action=menu.addAction(
+                    "Deactivate Selected Accounts"
+                )
+            elif current_filter=="inactive":
+                activate_action=menu.addAction(
+                    "Activate Selected Accounts"
+                )
+            delete_action=menu.addAction(
+                "Delete Selected Accounts"
+            )
+            action=menu.exec_(
+                self.accounts_page.viewport().mapToGlobal(
+                    position
+                )
+            )
+            if action==activate_action:
+                self.activate_selected_accounts()
+            elif action==deactivate_action:
+                self.deactivate_selected_accounts()
+            elif action==delete_action:
+                self.delete_selected_accounts()
+            return
         row=self.accounts_page.currentRow()
         if row<0:
             return
         account_id=int(
-            self.accounts_page.item(row,0).text()
+            self.accounts_page.item(
+                row,
+                0
+            ).text()
         )
         account_code=self.accounts_page.item(
             row,
@@ -770,6 +1284,20 @@ class BookkeepingApp(QMainWindow):
         self.update_action_bar()
             
     def open_journal_context_menu(self,position):
+        selected_rows=self.journal_page.selectionModel().selectedRows()
+        if len(selected_rows)>1:
+            menu=QMenu()
+            delete_action=menu.addAction(
+                "Delete Selected Journal Entries"
+            )
+            action=menu.exec_(
+                self.journal_page.viewport().mapToGlobal(
+                    position
+                )
+            )
+            if action==delete_action:
+                self.delete_selected_journal_entries()
+            return
         row=self.journal_page.currentRow()
         if row<0:
             return
@@ -1460,7 +1988,7 @@ class BookkeepingApp(QMainWindow):
             QAbstractItemView.SelectRows
         )
         table.setSelectionMode(
-            QAbstractItemView.SingleSelection
+            QAbstractItemView.ExtendedSelection
         )
         table.setEditTriggers(
             QAbstractItemView.NoEditTriggers
@@ -1468,6 +1996,16 @@ class BookkeepingApp(QMainWindow):
         table.setAlternatingRowColors(
             True
         )
+        table.setStyleSheet("""
+        QTableView::item:selected{
+            background:#1e88e5;
+            color:white;
+        }
+        QTableView::item:selected:!active{
+            background:#1e88e5;
+            color:white;
+        }
+        """)
         table.setSortingEnabled(
             True
         )
