@@ -1048,7 +1048,7 @@ class BookkeepingApp(QMainWindow):
     def open_accounts_context_menu(self,position):
         selected_rows=self.accounts_page.selectionModel().selectedRows()
         if len(selected_rows)>1:
-            menu=QMenu()
+            menu=QMenu(self)
             current_filter=getattr(
                 self,
                 "accounts_filter",
@@ -1079,13 +1079,14 @@ class BookkeepingApp(QMainWindow):
                     position
                 )
             )
+            if action is None:
+                return
             if action==activate_action:
                 self.activate_selected_accounts()
             elif action==deactivate_action:
                 self.deactivate_selected_accounts()
             elif action==delete_action:
                 self.delete_selected_accounts()
-            return
         row=self.accounts_page.currentRow()
         if row<0:
             return
@@ -1111,7 +1112,7 @@ class BookkeepingApp(QMainWindow):
             row,
             4
         ).text()
-        menu=QMenu()
+        menu=QMenu(self)
         edit_action=menu.addAction(
             "Edit Account"
         )
@@ -1131,6 +1132,8 @@ class BookkeepingApp(QMainWindow):
                 position
             )
         )
+        if action is None:
+            return
         if action==edit_action:
             dialog=AccountDialog(self)
             dialog.account_code.setText(
