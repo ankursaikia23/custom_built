@@ -100,6 +100,7 @@ class BookkeepingApp(QMainWindow):
             self.db
         )
         self.backups=BackupManager()
+        self.create_session_snapshot()
         self.settings=SettingsManager(
             self.db
         )
@@ -201,9 +202,9 @@ class BookkeepingApp(QMainWindow):
         if hasattr(self,"action_buttons"):
             current_page=self.pages.currentIndex()    
             page_config={
-                0:["REFRESH","ADD","SELECT","FILTER"],
-                1:["REFRESH","ADD","SELECT","FILTER"],
-                2:["REFRESH","ADD","SELECT","FILTER"],
+                0:["REFRESH","ADD","SELECT","FILTER","DELETE","RESTORE"],
+                1:["REFRESH","ADD","SELECT","FILTER","DELETE","RESTORE"],
+                2:["REFRESH","ADD","SELECT","FILTER","DELETE","RESTORE"],
                 3:["REFRESH"],
                 4:["REFRESH"],
                 5:["REFRESH"],
@@ -258,7 +259,9 @@ class BookkeepingApp(QMainWindow):
             "REFRESH":self.refresh_all,
             "ADD":self.global_add,
             "FILTER":self.open_filter_menu,
-            "SAVE":self.global_save
+            "SAVE":self.global_save,
+            "DELETE":self.global_delete,
+            "RESTORE":self.restore_session_snapshot
         }
         self.action_buttons={}
         for text,func in button_map.items():
@@ -688,6 +691,104 @@ class BookkeepingApp(QMainWindow):
             account_map["3000"],
             50000
         )
+        
+    def create_session_snapshot(self):
+        self.session_snapshot={}
+        tables=[
+            "accounts",
+            "journal_entries",
+            "journal_lines",
+            "audit_logs",
+            "app_settings",
+            "saved_reports",
+            "attachments",
+            "fiscal_periods",
+            "recurring_transactions",
+            "bank_accounts",
+            "customers",
+            "vendors",
+            "invoices",
+            "invoice_items"
+        ]
+        for table in tables:
+            rows=self.db.fetchall(
+                f"SELECT * FROM {table}"
+            )
+            self.session_snapshot[table]=[
+                dict(row)
+                for row in rows
+            ]
+        
+    def restore_session_snapshot(self):
+        confirm=QMessageBox.question(
+            self,
+            "Restore Session",
+            "Restore application to startup state?"
+        )
+        if confirm!=QMessageBox.Yes:
+            return
+        try:
+            tables=[
+                "invoice_items",
+                "invoices",
+                "vendors",
+                "customers",
+                "bank_accounts",
+                "recurring_transactions",
+                "fiscal_periods",
+                "attachments",
+                "saved_reports",
+                "app_settings",
+                "audit_logs",
+                "journal_lines",
+                "journal_entries",
+                "accounts"
+            ]
+            self.db.begin_transaction()
+            for table in tables:
+                self.db.execute(
+                    f"DELETE FROM {table}"
+                )
+            for table,rows in self.session_snapshot.items():
+                if not rows:
+                    continue
+                columns=list(
+                    rows[0].keys()
+                )
+                column_string=",".join(
+                    columns
+                )
+                placeholders=",".join(
+                    ["?"]*len(columns)
+                )
+                values=[]
+                for row in rows:
+                    values.append(
+                        tuple(
+                            row[column]
+                            for column in columns
+                        )
+                    )
+                self.db.executemany(
+                    f"""
+                    INSERT INTO {table}
+                    ({column_string})
+                    VALUES ({placeholders})
+                    """,
+                    values
+                )
+            self.db.commit_transaction()
+            self.refresh_all()
+            self.statusbar.showMessage(
+                "Session restored successfully"
+            )
+        except Exception as e:
+            self.db.rollback_transaction()
+            QMessageBox.warning(
+                self,
+                "Restore Failed",
+                str(e)
+            )
 
     def refresh_dashboard(self):
         summary=self.dashboard.get_dashboard_summary()
