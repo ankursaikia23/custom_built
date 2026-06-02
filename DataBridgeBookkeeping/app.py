@@ -2,7 +2,8 @@ from PyQt5.QtWidgets import(
     QMainWindow, QWidget, QHBoxLayout, QSplitter, QStackedWidget, QTableWidget,
     QTableWidgetItem, QFileDialog, QAbstractItemView, QMessageBox, QHeaderView,
     QInputDialog, QStatusBar, QMenu, QPushButton, QFrame, QVBoxLayout, QAction,
-    QComboBox, QToolButton, QDialog, QDateEdit, QFormLayout, QDialogButtonBox
+    QComboBox, QToolButton, QDialog, QDateEdit, QFormLayout, QDialogButtonBox,
+    QLabel, QLineEdit
 )
 from PyQt5.QtCore import QDate
 from PyQt5.QtGui import QKeySequence
@@ -110,6 +111,7 @@ class BookkeepingApp(QMainWindow):
         self.unsaved_changes=False
         self.loading_data=False
         self.accounts_filter="all"
+        self.current_status_path="Dashboard"
         self.resize(1600,900)
         self.init_ui()
         self.initialize_demo_data()
@@ -165,7 +167,19 @@ class BookkeepingApp(QMainWindow):
         self.pages.addWidget(self.invoices_page)
         self.pages.addWidget(self.settings_page)
         self.action_bar_container=QFrame()
-        self.action_bar_container.setFixedHeight(50)
+        self.action_bar_container.setFixedHeight(95)
+        self.action_bar_container.setFixedHeight(140)
+        self.navigation_status=QLabel("Dashboard")
+        self.navigation_status.setFixedHeight(28)
+        self.navigation_status.setStyleSheet("""
+        QLabel{
+            background:#f5f5f5;
+            border-top:1px solid #d0d0d0;
+            border-bottom:1px solid #d0d0d0;
+            padding-left:10px;
+            font-weight:bold;
+        }
+        """)
         self.statusbar=QStatusBar()
         self.setStatusBar(self.statusbar)
         self.statusbar.showMessage("Ready")
@@ -197,6 +211,11 @@ class BookkeepingApp(QMainWindow):
         self.save_shortcut.setShortcut(QKeySequence("Ctrl+S"))
         self.save_shortcut.triggered.connect(self.global_save)
         self.addAction(self.save_shortcut)
+        
+    def update_status_path(self,text):
+        self.current_status_path=text
+        if hasattr(self,"navigation_status"):
+            self.navigation_status.setText(text)
         
     def update_action_bar(self):
         if hasattr(self,"action_buttons"):
@@ -340,12 +359,207 @@ class BookkeepingApp(QMainWindow):
                 self.action_buttons["SELECT"]=select_btn
         container_layout=QVBoxLayout(self.action_bar_container)
         container_layout.setContentsMargins(0,0,0,0)
+        container_layout.setSpacing(0)        
         container_layout.addWidget(self.action_bar)
+        container_layout.addWidget(self.navigation_status)
+        self.search_container=QFrame()
+        search_layout=QHBoxLayout(self.search_container)
+        search_layout.setContentsMargins(0,0,0,0)
+        search_layout.setSpacing(8)        
+        self.search_input=QLineEdit()
+        self.search_input.setPlaceholderText(
+            "Search current page..."
+        )
+        self.search_input.setMinimumHeight(36)
+        self.search_btn=QPushButton("SEARCH")
+        self.search_btn.setMinimumHeight(36)
+        self.previous_search_btn=QPushButton("PREVIOUS")
+        self.previous_search_btn.setMinimumHeight(36)        
+        self.next_search_btn=QPushButton("NEXT")
+        self.next_search_btn.setMinimumHeight(36)
+        self.previous_search_btn.clicked.connect(
+            self.previous_search_result
+        )
+        self.next_search_btn.clicked.connect(
+            self.next_search_result
+        )
+        self.clear_search_btn=QPushButton("CLEAR")
+        self.clear_search_btn.setMinimumHeight(36)
+        button_style="""
+        QPushButton{
+            background:#1e88e5;
+            color:white;
+            font-weight:bold;
+            padding:8px 16px;
+            border-radius:4px;
+        }
+        QPushButton:hover:enabled{
+            background:#1565c0;
+        }
+        QPushButton:disabled{
+            background:#9e9e9e;
+            color:#e0e0e0;
+        }
+        """
+        self.search_btn.setStyleSheet(
+            button_style
+        )        
+        self.previous_search_btn.setStyleSheet(
+            button_style
+        )
+        self.next_search_btn.setStyleSheet(
+            button_style
+        )
+        self.clear_search_btn.setStyleSheet(
+            button_style
+        )
+        self.search_btn.setStyleSheet(
+            button_style
+        )
+        self.clear_search_btn.setStyleSheet(
+            button_style
+        )
+        
+        self.search_btn.clicked.connect(
+            self.perform_search
+        )
+        self.clear_search_btn.clicked.connect(
+            self.clear_search
+        )
+        search_layout.addWidget(
+            self.search_input,
+            12
+        )
+        search_layout.addWidget(
+            self.search_btn,
+            1
+        )
+        search_layout.addWidget(
+            self.previous_search_btn,
+            1
+        )
+        
+        search_layout.addWidget(
+            self.next_search_btn,
+            1
+        )
+        search_layout.addWidget(
+            self.clear_search_btn,
+            1
+        )
+        container_layout.addWidget(
+            self.search_container
+        )
         self.right_panel.insertWidget(
             0,
             self.action_bar_container
         )
         self.update_action_bar()
+        
+    def set_navigation_status(self,text):
+        self.current_status_path=text
+        if hasattr(self,"navigation_status"):
+            self.navigation_status.setText(text)
+            
+    def perform_search(self):
+        search_text=self.search_input.text().strip().lower()
+        if not search_text:
+            return
+        table=self.get_current_table()
+        if not table:
+            return
+        table.clearSelection()
+        self.search_matches=[]
+        for row in range(table.rowCount()):
+            for column in range(table.columnCount()):
+                item=table.item(row,column)
+                if not item:
+                    continue
+                if search_text in item.text().lower():
+                    self.search_matches.append(row)
+                    break
+        self.search_matches=list(
+            dict.fromkeys(self.search_matches)
+        )
+        self.current_search_index=0
+        if not self.search_matches:
+            self.statusbar.showMessage(
+                "No matches found"
+            )
+            return
+        table.setSelectionMode(
+            QAbstractItemView.MultiSelection
+        )
+        for row in self.search_matches:
+            table.selectRow(row)
+    
+        table.setSelectionMode(
+            QAbstractItemView.ExtendedSelection
+        )
+        first_row=self.search_matches[0]
+        table.scrollToItem(
+            table.item(first_row,0)
+        )
+        self.statusbar.showMessage(
+            f"{len(self.search_matches)} matches found"
+        )
+    
+    def clear_search(self):
+        if hasattr(self,"search_input"):
+            self.search_input.clear()
+        self.search_matches=[]
+        self.current_search_index=-1
+        table=self.get_current_table()
+        if table:
+            table.clearSelection()
+            
+    def next_search_result(self):
+        if not hasattr(self,"search_matches"):
+            return
+        if not self.search_matches:
+            return
+        table=self.get_current_table()
+        if not table:
+            return
+        self.current_search_index+=1
+        if self.current_search_index>=len(
+            self.search_matches
+        ):
+            self.current_search_index=0
+        row=self.search_matches[
+            self.current_search_index
+        ]
+        table.scrollToItem(
+            table.item(row,0)
+        )
+        table.setCurrentCell(
+            row,
+            0
+        )
+    
+    def previous_search_result(self):
+        if not hasattr(self,"search_matches"):
+            return
+        if not self.search_matches:
+            return
+        table=self.get_current_table()
+        if not table:
+            return
+        self.current_search_index-=1
+        if self.current_search_index<0:
+            self.current_search_index=(
+                len(self.search_matches)-1
+            )
+        row=self.search_matches[
+            self.current_search_index
+        ]
+        table.scrollToItem(
+            table.item(row,0)
+        )
+        table.setCurrentCell(
+            row,
+            0
+        )
         
     def set_unsaved_changes(self,state=True):
         if self.loading_data:
@@ -1009,10 +1223,21 @@ class BookkeepingApp(QMainWindow):
                 )
             )
         self.loading_data=False
+        if active_state:
+            self.set_navigation_status(
+                "Chart Of Accounts > Activated Accounts"
+            )
+        else:
+            self.set_navigation_status(
+                "Chart Of Accounts > Deactivated Accounts"
+            )
     
     def show_all_accounts(self):
         self.accounts_filter="all"
         self.load_accounts_table()
+        self.set_navigation_status(
+            "Chart Of Accounts > All Accounts"
+        )
         
     def filter_journal(self,period):
         rows=self.journal.get_all_journal_entries()
@@ -1056,6 +1281,9 @@ class BookkeepingApp(QMainWindow):
                 filtered.append(row)
         self.populate_filtered_journal(
             filtered
+        )
+        self.set_navigation_status(
+            f"Journal Entries > {period.title()}"
         )
     
     def open_custom_date_filter(self):
@@ -2157,6 +2385,7 @@ class BookkeepingApp(QMainWindow):
         if text in nav_map:
             self.pages.setCurrentIndex(nav_map[text])
             self.update_action_bar()
+            self.set_navigation_status(text.title())
             return
         action_map={
             "NEW ACCOUNT":self.open_account_dialog,
