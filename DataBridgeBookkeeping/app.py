@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import(
     QComboBox, QToolButton, QDialog, QDateEdit, QFormLayout, QDialogButtonBox,
     QLabel, QLineEdit
 )
-from PyQt5.QtCore import QDate
+from PyQt5.QtCore import QDate, Qt
 from PyQt5.QtGui import QKeySequence
 # from PyQt5.QtWidgets import QVBoxLayout, QAction, QToolBar
 from database import DatabaseManager
@@ -1694,11 +1694,19 @@ class BookkeepingApp(QMainWindow):
         dialog.description.setPlainText(
             str(entry["description"])
         )
-        dialog.entry_date.setDate(
-            dialog.entry_date.date().fromString(
-                str(entry["entry_date"]),
-                "yyyy-MM-dd"
-            )
+        date_obj=QDate.fromString(
+            str(entry["entry_date"]),
+            "yyyy-MM-dd"
+        )    
+        dialog.entry_year.setCurrentText(
+            str(date_obj.year())
+        )       
+        dialog.entry_month.setCurrentIndex(
+            date_obj.month()-1
+        )
+        dialog.update_day_dropdown()
+        dialog.entry_day.setCurrentText(
+            str(date_obj.day())
         )
         dialog.lines_table.setRowCount(
             len(lines)
@@ -1722,32 +1730,115 @@ class BookkeepingApp(QMainWindow):
                 0,
                 account_dropdown
             )
-            dialog.lines_table.setItem(
+            transaction_type_dropdown=QComboBox()
+            transaction_type_dropdown.addItems([
+                "Cash",
+                "UPI",
+                "Online Banking",
+                "Cheque",
+                "NEFT",
+                "RTGS",
+                "IMPS",
+                "Card",
+                "Wallet",
+                "Adjustment",
+                "Custom"
+            ])
+            description_value=str(
+                line["description"]
+            )
+            transaction_index=transaction_type_dropdown.findText(
+                description_value
+            )
+            if transaction_index>=0:
+                transaction_type_dropdown.setCurrentIndex(
+                    transaction_index
+                )
+            else:
+                transaction_type_dropdown.addItem(
+                    description_value
+                )
+                transaction_type_dropdown.setCurrentText(
+                    description_value
+                )
+            dialog.lines_table.setCellWidget(
                 row_index,
                 1,
-                QTableWidgetItem(
-                    str(line["description"])
-                )
+                transaction_type_dropdown
             )
-            dialog.lines_table.setItem(
+            entry_type_dropdown=QComboBox()
+            entry_type_dropdown.addItems([
+                "Debit",
+                "Credit"
+            ])
+            if float(line["debit"])>0:
+                entry_type_dropdown.setCurrentText(
+                    "Debit"
+                )
+                amount=float(
+                    line["debit"]
+                )
+            else:
+                entry_type_dropdown.setCurrentText(
+                    "Credit"
+                )
+                amount=float(
+                    line["credit"]
+                )
+            dialog.lines_table.setCellWidget(
                 row_index,
                 2,
-                QTableWidgetItem(
-                    str(line["debit"])
-                )
+                entry_type_dropdown
             )
+            amount_item=QTableWidgetItem(
+                str(amount)
+            )
+            if entry_type_dropdown.currentText()=="Debit":
+                amount_item.setForeground(
+                    Qt.red
+                )
+            else:
+                amount_item.setForeground(
+                    Qt.darkGreen
+                )
             dialog.lines_table.setItem(
                 row_index,
                 3,
-                QTableWidgetItem(
-                    str(line["credit"])
-                )
+                amount_item
+            )
+            dialog.lines_table.setItem(
+                row_index,
+                4,
+                QTableWidgetItem("")
+            )
+            attach_btn=QPushButton(
+                "Attach"
+            )
+            attach_btn.clicked.connect(
+                dialog.attachment_placeholder
+            )
+            dialog.lines_table.setCellWidget(
+                row_index,
+                5,
+                attach_btn
+            )
+            remove_btn=QPushButton("X")
+            remove_btn.clicked.connect(
+                lambda _,r=row_index:
+                dialog.remove_line(r)
+            )
+            dialog.lines_table.setCellWidget(
+                row_index,
+                6,
+                remove_btn
             )
         result=dialog.exec_()
         if not result:
             return
         try:
             updated_lines=[]
+            total_debit=0
+            total_credit=0
             for row in range(
                 dialog.lines_table.rowCount()
             ):
@@ -1755,39 +1846,57 @@ class BookkeepingApp(QMainWindow):
                     row,
                     0
                 )
-                if not account_widget:
-                    continue
-                description_item=dialog.lines_table.item(
+                transaction_type_widget=dialog.lines_table.cellWidget(
                     row,
                     1
                 )
-                debit_item=dialog.lines_table.item(
+                entry_type_widget=dialog.lines_table.cellWidget(
                     row,
                     2
                 )
-                credit_item=dialog.lines_table.item(
+                amount_item=dialog.lines_table.item(
                     row,
                     3
                 )
+                if not account_widget:
+                    continue
+                transaction_type=(
+                    transaction_type_widget.currentText()
+                    if transaction_type_widget
+                    else ""
+                )
+                entry_type=(
+                    entry_type_widget.currentText()
+                    if entry_type_widget
+                    else "Debit"
+                )
+                amount=float(
+                    amount_item.text()
+                ) if amount_item and amount_item.text() else 0
+                debit=amount if entry_type=="Debit" else 0
+                credit=amount if entry_type=="Credit" else 0
+                total_debit+=debit
+                total_credit+=credit
                 updated_lines.append({
                     "account_id":
                     account_widget.currentData(),
                     "description":
-                    description_item.text()
-                    if description_item
-                    else "",
+                    transaction_type,
                     "debit":
-                    float(debit_item.text())
-                    if debit_item
-                    else 0,
+                    debit,
                     "credit":
-                    float(credit_item.text())
-                    if credit_item
-                    else 0
+                    credit
                 })
+            if round(total_debit,2)!=round(total_credit,2):
+                QMessageBox.warning(
+                    self,
+                    "Journal Entry",
+                    "Debit and Credit amounts do not match."
+                )
+                return
             self.journal.update_journal_entry(
                 journal_entry_id,
-                dialog.entry_date.date().toString(
+                dialog.get_selected_date().toString(
                     "yyyy-MM-dd"
                 ),
                 dialog.reference.text().strip(),
@@ -2038,7 +2147,7 @@ class BookkeepingApp(QMainWindow):
     def open_journal_dialog(self):
         dialog=JournalEntryDialog(self)
         dialog.add_line()
-        dialog.add_line()
+        dialog.add_line()    
         result=dialog.exec_()
         if not result:
             return
@@ -2047,6 +2156,8 @@ class BookkeepingApp(QMainWindow):
             reference=dialog.reference.text().strip()
             description=dialog.description.toPlainText().strip()
             lines=[]
+            total_debit=0
+            total_credit=0
             for row in range(
                 dialog.lines_table.rowCount()
             ):
@@ -2054,41 +2165,59 @@ class BookkeepingApp(QMainWindow):
                     row,
                     0
                 )
-                description_item=dialog.lines_table.item(
+                transaction_type_widget=dialog.lines_table.cellWidget(
                     row,
                     1
                 )
-                debit_item=dialog.lines_table.item(
+                entry_type_widget=dialog.lines_table.cellWidget(
                     row,
                     2
                 )
-                credit_item=dialog.lines_table.item(
+                amount_item=dialog.lines_table.item(
                     row,
                     3
                 )
                 if not account_widget:
                     continue
+                transaction_type=(
+                    transaction_type_widget.currentText()
+                    if transaction_type_widget
+                    else ""
+                )
+                entry_type=(
+                    entry_type_widget.currentText()
+                    if entry_type_widget
+                    else "Debit"
+                )
+                amount=float(
+                    amount_item.text()
+                ) if amount_item and amount_item.text() else 0
+                debit=amount if entry_type=="Debit" else 0
+                credit=amount if entry_type=="Credit" else 0
+                total_debit+=debit
+                total_credit+=credit
                 lines.append({
                     "account_id":
                     account_widget.currentData(),
                     "description":
-                    description_item.text()
-                    if description_item
-                    else "",
+                    transaction_type,
                     "debit":
-                    float(debit_item.text())
-                    if debit_item
-                    else 0,
+                    debit,
                     "credit":
-                    float(credit_item.text())
-                    if credit_item
-                    else 0
+                    credit
                 })
+            if round(total_debit,2)!=round(total_credit,2):
+                QMessageBox.warning(
+                    self,
+                    "Journal Entry",
+                    "Debit and Credit amounts do not match."
+                )
+                return
             if not entry_number:
-                entry_number=self.transactions.generate_entry_number()        
-            entry_date=dialog.entry_date.date().toString(
+                entry_number=self.transactions.generate_entry_number()
+            entry_date=dialog.get_selected_date().toString(
                 "yyyy-MM-dd"
-            )        
+            )
             self.journal.create_journal_entry(
                 entry_number,
                 entry_date,

@@ -1,8 +1,11 @@
 from PyQt5.QtWidgets import(
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QTextEdit, QComboBox,
-    QTableWidget, QListWidget, QFileDialog, QDateEdit, QTableWidgetItem, QHeaderView
+    QTableWidget, QListWidget, QFileDialog, QHeaderView, QMessageBox, QTableWidgetItem
 )
-
+from PyQt5.QtCore import Qt, QDate
+# from PyQt5.QtWidgets import(
+#)
+# from datetime import datetime
 class AccountDialog(QDialog):
     def __init__(self,parent=None):
         super().__init__(parent)
@@ -87,41 +90,109 @@ class JournalEntryDialog(QDialog):
         layout=QVBoxLayout(self)
         self.entry_number=QLineEdit()
         self.reference=QLineEdit()
-        self.entry_date=QDateEdit()
-        self.entry_date.setCalendarPopup(
-            True
+        current_date=QDate.currentDate()
+        self.entry_day=QComboBox()
+        self.entry_month=QComboBox()
+        self.entry_year=QComboBox()
+        self.entry_day.setMaxVisibleItems(10)
+        self.entry_month.setMaxVisibleItems(10)
+        self.entry_year.setMaxVisibleItems(10)
+        for day in range(1,32):
+            self.entry_day.addItem(str(day))
+        months=[
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December"
+        ]
+        self.entry_month.addItems(months)
+        for year in range(1901,current_date.year()+1):
+            self.entry_year.addItem(str(year))
+        self.entry_day.setCurrentText(
+            str(current_date.day())
         )
+        self.entry_month.setCurrentIndex(
+            current_date.month()-1
+        )
+        self.entry_year.setCurrentText(
+            str(current_date.year())
+        )
+        date_layout=QHBoxLayout()
+        date_layout.addWidget(
+            self.entry_day
+        )
+        date_layout.addWidget(
+            self.entry_month
+        )
+        date_layout.addWidget(
+            self.entry_year
+        )
+        self.entry_month.currentIndexChanged.connect(
+            self.update_day_dropdown
+        )
+        self.entry_year.currentIndexChanged.connect(
+            self.update_day_dropdown
+        )
+        self.update_day_dropdown()
         self.description=QTextEdit()
         self.lines_table=QTableWidget()
-        self.lines_table.setColumnCount(6)
+        self.lines_table.setColumnCount(7)
         self.lines_table.setHorizontalHeaderLabels([
             "Account",
-            "Description",
-            "Debit",
-            "Credit",
+            "Transaction Type",
+            "Type",
+            "Amount",
             "Notes",
+            "Attachments",
             "Remove"
         ])
         self.lines_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
         )
-        layout.addWidget(
+        header_layout=QHBoxLayout()
+        entry_number_layout=QVBoxLayout()
+        entry_number_layout.addWidget(
             QLabel("Entry Number")
         )
-        layout.addWidget(
+        entry_number_layout.addWidget(
             self.entry_number
         )
-        layout.addWidget(
+        reference_layout=QVBoxLayout()
+        reference_layout.addWidget(
             QLabel("Reference")
         )
-        layout.addWidget(
+        reference_layout.addWidget(
             self.reference
         )
-        layout.addWidget(
+        date_container_layout=QVBoxLayout()
+        date_container_layout.addWidget(
             QLabel("Entry Date")
-        )       
-        layout.addWidget(
-            self.entry_date
+        )
+        date_container_layout.addLayout(
+            date_layout
+        )
+        header_layout.addLayout(
+            entry_number_layout,
+            2
+        )
+        header_layout.addLayout(
+            reference_layout,
+            3
+        )
+        header_layout.addLayout(
+            date_container_layout,
+            4
+        )
+        layout.addLayout(
+            header_layout
         )
         layout.addWidget(
             QLabel("Description")
@@ -154,13 +225,88 @@ class JournalEntryDialog(QDialog):
         buttons.addWidget(
             self.cancel_btn
         )
-        layout.addLayout(buttons)
+        layout.addLayout(
+            buttons
+        )
         self.save_btn.clicked.connect(
             self.accept
-        )     
+        )
         self.cancel_btn.clicked.connect(
             self.reject
         )
+        
+    def get_selected_date(self):
+        month_names=[
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December"
+        ]
+        day=int(
+            self.entry_day.currentText()
+        )
+        month=month_names.index(
+            self.entry_month.currentText()
+        )+1
+        year=int(
+            self.entry_year.currentText()
+        )
+        return QDate(
+            year,
+            month,
+            day
+        )
+    
+    def update_day_dropdown(self):
+        month_names=[
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December"
+        ]    
+        current_day=min(
+            int(self.entry_day.currentText()),
+            31
+        )
+        month=month_names.index(
+            self.entry_month.currentText()
+        )+1
+        year=int(
+            self.entry_year.currentText()
+        )
+        if month in [1,3,5,7,8,10,12]:
+            max_days=31
+        elif month in [4,6,9,11]:
+            max_days=30
+        else:
+            if (year%400==0) or (year%4==0 and year%100!=0):
+                max_days=29
+            else:
+                max_days=28
+        self.entry_day.blockSignals(True)
+        self.entry_day.clear()
+        for day in range(1,max_days+1):
+            self.entry_day.addItem(str(day))
+        self.entry_day.setCurrentText(
+            str(min(current_day,max_days))
+        )
+        self.entry_day.blockSignals(False)
         
     def add_line(self):
         row=self.lines_table.rowCount()
@@ -178,18 +324,99 @@ class JournalEntryDialog(QDialog):
             0,
             account_dropdown
         )
+        transaction_type_widget=QComboBox()
+        transaction_type_widget.addItems([
+            "Cash",
+            "UPI",
+            "Online Banking",
+            "Cheque",
+            "NEFT",
+            "RTGS",
+            "IMPS",
+            "Card",
+            "Wallet",
+            "Adjustment",
+        ])
+
+        def update_amount_color(text):
+            if self.lines_table.item(row,3):
+                if text=="Debit":
+                    self.lines_table.item(
+                        row,
+                        3
+                    ).setForeground(Qt.red)
+                else:
+                    self.lines_table.item(
+                        row,
+                        3
+                    ).setForeground(Qt.darkGreen)
+    
+        self.lines_table.setCellWidget(
+            row,
+            1,
+            transaction_type_widget
+        )
+        entry_type_dropdown=QComboBox()
+        entry_type_dropdown.addItems([
+            "Debit",
+            "Credit"
+        ])
+        self.lines_table.setCellWidget(
+            row,
+            2,
+            entry_type_dropdown
+        )
+        amount_item=QTableWidgetItem(
+            "0.00"
+        )
+        amount_item.setForeground(
+            Qt.red
+        )
+        self.lines_table.setItem(
+            row,
+            3,
+            amount_item
+        )
+        entry_type_dropdown.currentTextChanged.connect(
+            update_amount_color
+        )
+        attach_btn=QPushButton(
+            "Attach"
+        )    
+        attach_btn.clicked.connect(
+            self.attachment_placeholder
+        )
+        self.lines_table.setCellWidget(
+            row,
+            5,
+            attach_btn
+        )
         remove_btn=QPushButton("X")
         remove_btn.clicked.connect(
             lambda _, r=row: self.remove_line(r)
         )
         self.lines_table.setCellWidget(
             row,
-            5,
+            6,
             remove_btn
         )
         
     def remove_line(self,row):
+        if self.lines_table.rowCount()<=2:
+            QMessageBox.information(
+                self,
+                "Journal Entry",
+                "A journal entry must contain at least two lines."
+            )
+            return
         self.lines_table.removeRow(row)
+        
+    def attachment_placeholder(self):
+        QMessageBox.information(
+            self,
+            "Attachments",
+            "Attachment functionality will be added later."
+        )
 
 class BackupDialog(QDialog):
     def __init__(self,parent=None):
