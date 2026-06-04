@@ -1887,13 +1887,6 @@ class BookkeepingApp(QMainWindow):
                     "credit":
                     credit
                 })
-            if round(total_debit,2)!=round(total_credit,2):
-                QMessageBox.warning(
-                    self,
-                    "Journal Entry",
-                    "Debit and Credit amounts do not match."
-                )
-                return
             self.journal.update_journal_entry(
                 journal_entry_id,
                 dialog.get_selected_date().toString(
@@ -2206,13 +2199,6 @@ class BookkeepingApp(QMainWindow):
                     "credit":
                     credit
                 })
-            if round(total_debit,2)!=round(total_credit,2):
-                QMessageBox.warning(
-                    self,
-                    "Journal Entry",
-                    "Debit and Credit amounts do not match."
-                )
-                return
             if not entry_number:
                 entry_number=self.transactions.generate_entry_number()
             entry_date=dialog.get_selected_date().toString(

@@ -229,7 +229,7 @@ class JournalEntryDialog(QDialog):
             buttons
         )
         self.save_btn.clicked.connect(
-            self.accept
+            self.validate_and_accept
         )
         self.cancel_btn.clicked.connect(
             self.reject
@@ -307,6 +307,45 @@ class JournalEntryDialog(QDialog):
             str(min(current_day,max_days))
         )
         self.entry_day.blockSignals(False)
+        
+    def validate_and_accept(self):
+        total_debit=0
+        total_credit=0    
+        for row in range(
+            self.lines_table.rowCount()
+        ):
+            entry_type_widget=self.lines_table.cellWidget(
+                row,
+                2
+            )
+            amount_item=self.lines_table.item(
+                row,
+                3
+            )
+            if not entry_type_widget:
+                continue
+            amount=float(
+                amount_item.text()
+            ) if amount_item and amount_item.text() else 0
+            if entry_type_widget.currentText()=="Debit":
+                total_debit+=amount
+            else:
+                total_credit+=amount
+        if round(total_debit,2)!=round(total_credit,2):
+            QMessageBox.warning(
+                self,
+                "Journal Entry",
+                "Debit and Credit amounts do not match."
+            )
+            return
+        if round(total_debit,2)==0:
+            QMessageBox.warning(
+                self,
+                "Journal Entry",
+                "Total amount cannot be zero."
+            )
+            return
+        self.accept()
         
     def add_line(self):
         row=self.lines_table.rowCount()
