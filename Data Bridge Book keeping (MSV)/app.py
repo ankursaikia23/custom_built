@@ -264,15 +264,12 @@ class BookkeepingApp(QMainWindow):
                     button.setEnabled(
                         name in enabled_buttons
                     )
-                elif name=="SAVE":
-                    save_allowed=name in enabled_buttons
-                    button.setEnabled(
-                        save_allowed and self.unsaved_changes
-                    )
+                elif name=="SAVE ALL":
+                    button.setEnabled(True)
                     if self.unsaved_changes:
-                        button.setText("SAVE *")
+                        button.setText("SAVE ALL *")
                     else:
-                        button.setText("SAVE")
+                        button.setText("SAVE ALL")
                 elif name=="SELECT":
                     button.setEnabled(
                         current_page in select_pages
@@ -290,7 +287,7 @@ class BookkeepingApp(QMainWindow):
             "REFRESH":self.refresh_all,
             "ADD":self.global_add,
             "FILTER":self.open_filter_menu,
-            "SAVE":self.global_save,
+            "SAVE ALL":self.global_save,
             "DELETE":self.global_delete,
             "RESTORE":self.restore_session_snapshot
         }
@@ -606,19 +603,22 @@ class BookkeepingApp(QMainWindow):
             QMessageBox.information(self,"Info","Module not implemented yet")
             
     def global_save(self):
-        if not self.unsaved_changes:
-            return
         confirm=QMessageBox.question(
             self,
             "Confirm Save",
-            "Are you sure you want to save changes?",
+            "Save all changes?",
             QMessageBox.Ok|QMessageBox.Cancel
         )
         if confirm!=QMessageBox.Ok:
             return
+        try:
+            self.db.conn.commit()
+        except Exception:
+            pass
+        self.refresh_all()
         self.set_unsaved_changes(False)
         self.statusbar.showMessage(
-            "Changes saved"
+            "All changes saved"
         )
             
     def open_filter_menu(self):
@@ -694,6 +694,7 @@ class BookkeepingApp(QMainWindow):
                         self.journal.delete_journal_entry(
                             entry["id"]
                         )
+                        self.set_unsaved_changes(True)
             self.load_journal_table()
             self.load_dashboard_recent_entries()
             self.refresh_dashboard()
@@ -723,6 +724,7 @@ class BookkeepingApp(QMainWindow):
                 self.accounts.delete_account(
                     account_id
                 )
+                self.set_unsaved_changes(True)
             self.load_accounts_table()
             self.refresh_dashboard()
             self.statusbar.showMessage(
@@ -751,6 +753,7 @@ class BookkeepingApp(QMainWindow):
                 self.journal.delete_journal_entry(
                     journal_entry_id
                 )
+                self.set_unsaved_changes(True)
             self.load_journal_table()
             self.refresh_dashboard()
             self.statusbar.showMessage(
@@ -820,6 +823,7 @@ class BookkeepingApp(QMainWindow):
             self.accounts.activate_account(
                 account_id
             )
+            self.set_unsaved_changes(True)
         self.load_accounts_table()
         self.refresh_dashboard()
     
@@ -844,6 +848,7 @@ class BookkeepingApp(QMainWindow):
             self.accounts.deactivate_account(
                 account_id
             )
+            self.set_unsaved_changes(True)
         self.load_accounts_table()
         self.refresh_dashboard()
     
@@ -872,6 +877,7 @@ class BookkeepingApp(QMainWindow):
             self.accounts.delete_account(
                 account_id
             )
+            self.set_unsaved_changes(True)
         self.load_accounts_table()
         self.refresh_dashboard()
 
@@ -1543,6 +1549,7 @@ class BookkeepingApp(QMainWindow):
                 name,
                 acc_type
             )
+            self.set_unsaved_changes(True)
             self.load_accounts_table()
             self.refresh_dashboard()
         elif action==toggle_action:
@@ -1550,10 +1557,12 @@ class BookkeepingApp(QMainWindow):
                 self.accounts.deactivate_account(
                     account_id
                 )
+                self.set_unsaved_changes(True)
             else:
                 self.accounts.activate_account(
                     account_id
                 )
+                self.set_unsaved_changes(True)
             self.load_accounts_table()
             self.refresh_dashboard()
         elif action==delete_action:
@@ -1567,6 +1576,7 @@ class BookkeepingApp(QMainWindow):
             self.accounts.delete_account(
                 account_id
             )
+            self.set_unsaved_changes(True)
             self.load_accounts_table()
             self.refresh_dashboard()
             
@@ -1696,6 +1706,7 @@ class BookkeepingApp(QMainWindow):
             self.journal.delete_journal_entry(
                 journal_entry_id
             )
+            self.set_unsaved_changes(True)
             self.load_journal_table()
             self.refresh_dashboard()
             self.statusbar.showMessage(
@@ -1933,6 +1944,7 @@ class BookkeepingApp(QMainWindow):
                 dialog.description.toPlainText().strip(),
                 updated_lines
             )
+            self.set_unsaved_changes(True)
             self.load_journal_table()
             self.refresh_dashboard()
             self.statusbar.showMessage(
@@ -2168,6 +2180,7 @@ class BookkeepingApp(QMainWindow):
             name,
             account_type
         )
+        self.set_unsaved_changes(True)
         self.load_accounts_table()
         self.refresh_dashboard()
         self.statusbar.showMessage(
@@ -2255,6 +2268,7 @@ class BookkeepingApp(QMainWindow):
                 description,
                 lines
             )
+            self.set_unsaved_changes(True)
             self.load_journal_table()
             self.refresh_dashboard()
         except Exception as e:
@@ -2465,6 +2479,7 @@ class BookkeepingApp(QMainWindow):
             name.strip(),
             account_type
         )
+        self.set_unsaved_changes(True)
         self.load_accounts_table()
         self.refresh_dashboard()
         self.statusbar.showMessage(
@@ -2579,25 +2594,15 @@ class BookkeepingApp(QMainWindow):
         if self.unsaved_changes:
             reply=QMessageBox.question(
                 self,
-                "Unsaved Changes",
-                "Exit without saving?",
-                QMessageBox.Ok|QMessageBox.Cancel
-            )
-            if reply!=QMessageBox.Ok:
-                event.ignore()
-                return    
-        try:
-            self.db.close()
-        except Exception:
-            pass
-        if self.unsaved_changes:
-            reply=QMessageBox.question(
-                self,
-                "Unsaved Changes",
+                "Exit Without Saving",
                 "Exit without saving?",
                 QMessageBox.Ok|QMessageBox.Cancel
             )
             if reply!=QMessageBox.Ok:
                 event.ignore()
                 return
+        try:
+            self.db.close()
+        except Exception:
+            pass
         event.accept()
