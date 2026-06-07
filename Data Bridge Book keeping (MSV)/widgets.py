@@ -180,4 +180,4 @@ class NavigationWidget(QWidget):
         system.addChild(QTreeWidgetItem(["MANAGE BACKUPS"]))
         system.addChild(QTreeWidgetItem(["REFRESH"]))
         layout.addWidget(self.tree)
-        self.tree.expandAll()
+        self.tree.collapseAll()

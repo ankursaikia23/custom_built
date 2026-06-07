@@ -287,9 +287,9 @@ class BookkeepingApp(QMainWindow):
             "REFRESH":self.refresh_all,
             "ADD":self.global_add,
             "FILTER":self.open_filter_menu,
-            "SAVE ALL":self.global_save,
             "DELETE":self.global_delete,
-            "RESTORE":self.restore_session_snapshot
+            "RESTORE":self.restore_session_snapshot,
+            "SAVE ALL":self.global_save
         }
         self.action_buttons={}
         for text,func in button_map.items():
@@ -1197,7 +1197,7 @@ class BookkeepingApp(QMainWindow):
                 row_index,
                 4,
                 QTableWidgetItem(
-                    str(row["is_active"])
+                    "Active" if str(row["is_active"])=="1" else "Inactive"
                 )
             )
         self.loading_data=False
@@ -1256,7 +1256,7 @@ class BookkeepingApp(QMainWindow):
                 row_index,
                 4,
                 QTableWidgetItem(
-                    str(row["is_active"])
+                    "Active" if str(row["is_active"])=="1" else "Inactive"
                 )
             )
         self.loading_data=False
@@ -1484,7 +1484,7 @@ class BookkeepingApp(QMainWindow):
         edit_action=menu.addAction(
             "Edit Account"
         )
-        if status=="1":
+        if status=="Active":
             toggle_action=menu.addAction(
                 "Deactivate Account"
             )
@@ -1553,7 +1553,7 @@ class BookkeepingApp(QMainWindow):
             self.load_accounts_table()
             self.refresh_dashboard()
         elif action==toggle_action:
-            if status=="1":
+            if status=="Active":
                 self.accounts.deactivate_account(
                     account_id
                 )
