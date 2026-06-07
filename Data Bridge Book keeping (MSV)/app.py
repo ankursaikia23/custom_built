@@ -1754,24 +1754,56 @@ class BookkeepingApp(QMainWindow):
         )
         for row_index,line in enumerate(lines):
             account_dropdown=QComboBox()
+            account_dropdown.setSizeAdjustPolicy(
+                QComboBox.AdjustToContents
+            )            
+            account_dropdown.view().setMinimumWidth(
+                450
+            )
             accounts=self.accounts.get_all_accounts()
             selected_index=0
-            for index,account in enumerate(accounts):
-                account_dropdown.addItem(
-                    f"{account['id']} - {account['account_name']}",
-                    account["id"]
+            dropdown_index=0
+            for account in accounts:
+                is_current_account=(
+                    account["id"]==line["account_id"]
+                )            
+                is_active=(
+                    str(account["is_active"])=="1"
                 )
-                if account["id"]==line["account_id"]:
-                    selected_index=index
+                if is_current_account or is_active:
+                    account_dropdown.addItem(
+                        f"{account['id']} - {account['account_name']}",
+                        account["id"]
+                    )
+                    if is_current_account:
+                        selected_index=dropdown_index
+                    dropdown_index+=1
             account_dropdown.setCurrentIndex(
                 selected_index
             )
+            is_inactive=str(
+                line["is_active"]
+            )!="1"        
+            if is_inactive:
+                account_dropdown.setEnabled(
+                    False
+                )
+            if is_inactive:
+                account_dropdown.setStyleSheet(
+                    "background-color:#d9d9d9;"
+                )
             dialog.lines_table.setCellWidget(
                 row_index,
                 0,
                 account_dropdown
             )
             transaction_type_dropdown=QComboBox()
+            transaction_type_dropdown.setSizeAdjustPolicy(
+                QComboBox.AdjustToContents
+            )            
+            transaction_type_dropdown.view().setMinimumWidth(
+                250
+            )
             transaction_type_dropdown.addItems([
                 "Cash",
                 "UPI",
@@ -1807,6 +1839,14 @@ class BookkeepingApp(QMainWindow):
                 1,
                 transaction_type_dropdown
             )
+            if is_inactive:
+                transaction_type_dropdown.setEnabled(
+                    False
+                )
+            if is_inactive:
+                transaction_type_dropdown.setStyleSheet(
+                    "background-color:#d9d9d9;"
+                )
             entry_type_dropdown=QComboBox()
             entry_type_dropdown.addItems([
                 "Debit",
@@ -1831,6 +1871,14 @@ class BookkeepingApp(QMainWindow):
                 2,
                 entry_type_dropdown
             )
+            if is_inactive:
+                entry_type_dropdown.setEnabled(
+                    False
+                )
+            if is_inactive:
+                entry_type_dropdown.setStyleSheet(
+                    "background-color:#d9d9d9;"
+                )
             amount_item=QTableWidgetItem(
                 str(amount)
             )
@@ -1847,6 +1895,32 @@ class BookkeepingApp(QMainWindow):
                 3,
                 amount_item
             )
+            if is_inactive:
+                amount_item.setFlags(
+                    amount_item.flags()
+                    &
+                    ~Qt.ItemIsEditable
+                )
+            if is_inactive:
+                for column in range(
+                    dialog.lines_table.columnCount()
+                ):
+                    item=dialog.lines_table.item(
+                        row_index,
+                        column
+                    )
+                    if item:
+                        item.setBackground(
+                            Qt.lightGray
+                        )
+                    widget=dialog.lines_table.cellWidget(
+                        row_index,
+                        column
+                    )
+                    if widget:
+                        widget.setStyleSheet(
+                            "background-color:#d9d9d9;"
+                        )
             dialog.lines_table.setItem(
                 row_index,
                 4,
@@ -1864,10 +1938,15 @@ class BookkeepingApp(QMainWindow):
                 attach_btn
             )
             remove_btn=QPushButton("X")
-            remove_btn.clicked.connect(
-                lambda _,r=row_index:
-                dialog.remove_line(r)
-            )
+            if is_inactive:
+                remove_btn.setEnabled(
+                    False
+                )
+            else:
+                remove_btn.clicked.connect(
+                    lambda _,r=row_index:
+                    dialog.remove_line(r)
+                )
             dialog.lines_table.setCellWidget(
                 row_index,
                 6,

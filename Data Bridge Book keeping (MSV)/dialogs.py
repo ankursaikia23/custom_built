@@ -358,6 +358,12 @@ class JournalEntryDialog(QDialog):
         row=self.lines_table.rowCount()
         self.lines_table.insertRow(row)
         account_dropdown=QComboBox()
+        account_dropdown.setSizeAdjustPolicy(
+            QComboBox.AdjustToContents
+        )        
+        account_dropdown.view().setMinimumWidth(
+            450
+        )
         if self.parent_app:
             accounts=self.parent_app.accounts.get_active_accounts()
             for account in accounts:
@@ -371,6 +377,12 @@ class JournalEntryDialog(QDialog):
             account_dropdown
         )
         transaction_type_widget=QComboBox()
+        transaction_type_widget.setSizeAdjustPolicy(
+            QComboBox.AdjustToContents
+        )        
+        transaction_type_widget.view().setMinimumWidth(
+            250
+        )
         transaction_type_widget.addItems([
             "Cash",
             "UPI",

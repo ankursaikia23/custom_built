@@ -238,7 +238,8 @@ class JournalManager:
             jl.credit,
             a.account_code,
             a.account_name,
-            a.id as account_id
+            a.id as account_id,
+            a.is_active
         FROM journal_lines jl
         JOIN accounts a
         ON jl.account_id=a.id
