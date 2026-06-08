@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import(
     QLabel, QLineEdit
 )
 from PyQt5.QtCore import QDate, Qt
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtGui import QKeySequence, QDoubleValidator
 # from PyQt5.QtWidgets import QVBoxLayout, QAction, QToolBar
 from database import DatabaseManager
 from accounts import AccountManager
@@ -1510,6 +1510,12 @@ class BookkeepingApp(QMainWindow):
             dialog.account_name.setText(
                 account_name
             )
+            account=self.accounts.get_account_by_id(
+                account_id
+            )
+            dialog.description.setPlainText(
+                str(account["description"] or "")
+            )
             if account_type in [
                 "Asset",
                 "Liability",
@@ -1533,6 +1539,7 @@ class BookkeepingApp(QMainWindow):
                 return
             code=dialog.account_code.text().strip()
             name=dialog.account_name.text().strip()
+            description=dialog.description.toPlainText().strip()
             acc_type=dialog.account_type.currentText()
             if acc_type=="Custom":
                 acc_type=dialog.custom_account_type.text().strip()
@@ -1547,7 +1554,8 @@ class BookkeepingApp(QMainWindow):
                 account_id,
                 code,
                 name,
-                acc_type
+                acc_type,
+                description
             )
             self.set_unsaved_changes(True)
             self.load_accounts_table()
@@ -1754,11 +1762,14 @@ class BookkeepingApp(QMainWindow):
         )
         for row_index,line in enumerate(lines):
             account_dropdown=QComboBox()
+            account_dropdown.setMinimumHeight(
+                32
+            )
             account_dropdown.setSizeAdjustPolicy(
-                QComboBox.AdjustToContents
+                QComboBox.AdjustToMinimumContentsLengthWithIcon
             )            
             account_dropdown.view().setMinimumWidth(
-                450
+                300
             )
             accounts=self.accounts.get_all_accounts()
             selected_index=0
@@ -1798,11 +1809,14 @@ class BookkeepingApp(QMainWindow):
                 account_dropdown
             )
             transaction_type_dropdown=QComboBox()
+            transaction_type_dropdown.setMinimumHeight(
+                32
+            )
             transaction_type_dropdown.setSizeAdjustPolicy(
-                QComboBox.AdjustToContents
-            )            
+                QComboBox.AdjustToMinimumContentsLengthWithIcon
+            )
             transaction_type_dropdown.view().setMinimumWidth(
-                250
+                180
             )
             transaction_type_dropdown.addItems([
                 "Cash",
@@ -1852,6 +1866,23 @@ class BookkeepingApp(QMainWindow):
                 "Debit",
                 "Credit"
             ])
+            
+            def update_amount_color(text):
+                amount_widget=dialog.lines_table.cellWidget(
+                    row_index,
+                    3
+                )        
+                if not amount_widget:
+                    return
+                if text=="Debit":
+                    amount_widget.setStyleSheet(
+                        "color:red;"
+                    )
+                else:
+                    amount_widget.setStyleSheet(
+                        "color:green;"
+                    )
+            
             if float(line["debit"])>0:
                 entry_type_dropdown.setCurrentText(
                     "Debit"
@@ -1871,6 +1902,9 @@ class BookkeepingApp(QMainWindow):
                 2,
                 entry_type_dropdown
             )
+            entry_type_dropdown.currentTextChanged.connect(
+                update_amount_color
+            )
             if is_inactive:
                 entry_type_dropdown.setEnabled(
                     False
@@ -1879,28 +1913,37 @@ class BookkeepingApp(QMainWindow):
                 entry_type_dropdown.setStyleSheet(
                     "background-color:#d9d9d9;"
                 )
-            amount_item=QTableWidgetItem(
-                str(amount)
+            amount_input=QLineEdit()
+            amount_input.setText(
+                f"{amount:.2f}"
             )
+            amount_input.setAlignment(
+                Qt.AlignRight
+            )
+            amount_input.setValidator(
+                QDoubleValidator(
+                    0.00,
+                    999999999999.99,
+                    2
+                )
+            )            
             if entry_type_dropdown.currentText()=="Debit":
-                amount_item.setForeground(
-                    Qt.red
+                amount_input.setStyleSheet(
+                    "color:red;"
                 )
             else:
-                amount_item.setForeground(
-                    Qt.darkGreen
+                amount_input.setStyleSheet(
+                    "color:green;"
                 )
-            dialog.lines_table.setItem(
+            if is_inactive:
+                amount_input.setReadOnly(
+                    True
+                )
+            dialog.lines_table.setCellWidget(
                 row_index,
                 3,
-                amount_item
+                amount_input
             )
-            if is_inactive:
-                amount_item.setFlags(
-                    amount_item.flags()
-                    &
-                    ~Qt.ItemIsEditable
-                )
             if is_inactive:
                 for column in range(
                     dialog.lines_table.columnCount()
@@ -1927,7 +1970,10 @@ class BookkeepingApp(QMainWindow):
                 QTableWidgetItem("")
             )
             attach_btn=QPushButton(
-                "Attach"
+                "📎 Attach"
+            )
+            attach_btn.setMinimumHeight(
+                32
             )
             attach_btn.clicked.connect(
                 dialog.attachment_placeholder
@@ -1937,7 +1983,22 @@ class BookkeepingApp(QMainWindow):
                 5,
                 attach_btn
             )
-            remove_btn=QPushButton("X")
+            remove_btn=QPushButton("✕")
+            remove_btn.setMinimumHeight(
+                32
+            )
+            remove_btn.setStyleSheet("""
+            QPushButton{
+                color:white;
+                background:#c62828;
+                border:none;
+                border-radius:4px;
+                font-weight:bold;
+            }
+            QPushButton:hover{
+                background:#b71c1c;
+            }
+            """)
             if is_inactive:
                 remove_btn.setEnabled(
                     False
@@ -1974,7 +2035,7 @@ class BookkeepingApp(QMainWindow):
                     row,
                     2
                 )
-                amount_item=dialog.lines_table.item(
+                amount_widget=dialog.lines_table.cellWidget(
                     row,
                     3
                 )
@@ -1992,8 +2053,8 @@ class BookkeepingApp(QMainWindow):
                 )
                 try:
                     amount=float(
-                        amount_item.text()
-                    ) if amount_item and amount_item.text() else 0
+                        amount_widget.text()
+                    ) if amount_widget and amount_widget.text() else 0
                 except Exception:
                     amount=0
                 debit=amount if entry_type=="Debit" else 0
@@ -2215,6 +2276,7 @@ class BookkeepingApp(QMainWindow):
             return
         code=dialog.account_code.text().strip()
         name=dialog.account_name.text().strip()
+        description=dialog.description.toPlainText().strip()
         account_type=dialog.account_type.currentText()
         if account_type=="Custom":
             account_type=dialog.custom_account_type.text().strip()
@@ -2257,7 +2319,8 @@ class BookkeepingApp(QMainWindow):
         self.accounts.create_account(
             code,
             name,
-            account_type
+            account_type,
+            description
         )
         self.set_unsaved_changes(True)
         self.load_accounts_table()
@@ -2295,7 +2358,7 @@ class BookkeepingApp(QMainWindow):
                     row,
                     2
                 )
-                amount_item=dialog.lines_table.item(
+                amount_widget=dialog.lines_table.cellWidget(
                     row,
                     3
                 )
@@ -2313,8 +2376,8 @@ class BookkeepingApp(QMainWindow):
                 )
                 try:
                     amount=float(
-                        amount_item.text()
-                    ) if amount_item and amount_item.text() else 0
+                        amount_widget.text()
+                    ) if amount_widget and amount_widget.text() else 0
                 except Exception:
                     amount=0
                 debit=amount if entry_type=="Debit" else 0

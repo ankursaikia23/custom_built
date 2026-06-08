@@ -17,6 +17,7 @@ class AccountManager:
         account_code,
         account_name,
         account_type,
+        description="",
         parent_id=None
     ):
         if not account_code:
@@ -50,14 +51,16 @@ class AccountManager:
         INSERT INTO accounts(
             account_code,
             account_name,
+            description,
             account_type,
             parent_id,
             created_at
         )
-        VALUES(?,?,?,?,?)
+        VALUES(?,?,?,?,?,?)
         """,(
             account_code,
             account_name,
+            description,
             account_type,
             parent_id,
             datetime.now().strftime(
@@ -77,6 +80,7 @@ class AccountManager:
             id,
             account_code,
             account_name,
+            description,
             account_type,
             parent_id,
             is_active
@@ -90,6 +94,7 @@ class AccountManager:
             id,
             account_code,
             account_name,
+            description,
             account_type
         FROM accounts
         WHERE is_active=1
@@ -121,7 +126,8 @@ class AccountManager:
         account_id,
         account_code,
         account_name,
-        account_type
+        account_type,
+        description=""
     ):
         account=self.get_account_by_id(
             account_id
@@ -154,11 +160,13 @@ class AccountManager:
         SET
             account_code=?,
             account_name=?,
+            description=?,
             account_type=?
         WHERE id=?
         """,(
             account_code,
             account_name,
+            description,
             account_type,
             account_id
         ))

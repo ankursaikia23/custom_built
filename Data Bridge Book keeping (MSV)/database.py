@@ -121,6 +121,7 @@ class DatabaseManager:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             account_code TEXT UNIQUE NOT NULL,
             account_name TEXT NOT NULL,
+            description TEXT,
             account_type TEXT NOT NULL,
             parent_id INTEGER,
             is_active INTEGER DEFAULT 1,
@@ -273,6 +274,22 @@ class DatabaseManager:
         )
         """)
         self.conn.commit()
+        self.upgrade_database_schema()
+        
+    def upgrade_database_schema(self):
+        columns=self.fetchall(
+            "PRAGMA table_info(accounts)"
+        )
+        column_names=[
+            column["name"]
+            for column in columns
+        ]
+        if "description" not in column_names:
+            self.execute("""
+            ALTER TABLE accounts
+            ADD COLUMN description TEXT
+            """)
+            self.conn.commit()
         
     def create_indexes(self):
         self.execute("""

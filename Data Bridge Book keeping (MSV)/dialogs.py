@@ -1,10 +1,11 @@
 from PyQt5.QtWidgets import(
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit, QTextEdit, QComboBox,
-    QTableWidget, QListWidget, QFileDialog, QHeaderView, QMessageBox, QTableWidgetItem
+    QTableWidget, QListWidget, QFileDialog, QHeaderView, QMessageBox
 )
 from PyQt5.QtCore import Qt, QDate
+from PyQt5.QtGui import QDoubleValidator
 # from PyQt5.QtWidgets import(
-#)
+#   QTableWidgetItem)
 # from datetime import datetime
 class AccountDialog(QDialog):
     def __init__(self,parent=None):
@@ -12,10 +13,14 @@ class AccountDialog(QDialog):
         self.setWindowTitle(
             "Account"
         )
-        self.resize(400,300)
+        self.resize(500,450)
         layout=QVBoxLayout(self)
         self.account_code=QLineEdit()
         self.account_name=QLineEdit()
+        self.account_name.setMaxLength(
+            100
+        )
+        self.description=QTextEdit()
         self.account_type=QComboBox()
         self.account_type.addItems([
             "Asset",
@@ -35,6 +40,12 @@ class AccountDialog(QDialog):
         )
         layout.addWidget(
             self.account_name
+        )
+        layout.addWidget(
+            QLabel("Description")
+        )
+        layout.addWidget(
+            self.description
         )
         layout.addWidget(
             QLabel("Account Type")
@@ -141,6 +152,18 @@ class JournalEntryDialog(QDialog):
         ])
         self.lines_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
+        )
+        self.lines_table.setAlternatingRowColors(
+            True
+        )
+        self.lines_table.verticalHeader().setDefaultSectionSize(
+            42
+        )
+        self.lines_table.setSelectionBehavior(
+            QTableWidget.SelectRows
+        )
+        self.lines_table.setShowGrid(
+            True
         )
         header_layout=QHBoxLayout()
         entry_number_layout=QVBoxLayout()
@@ -303,7 +326,7 @@ class JournalEntryDialog(QDialog):
                 row,
                 2
             )
-            amount_item=self.lines_table.item(
+            amount_widget=self.lines_table.cellWidget(
                 row,
                 3
             )
@@ -311,8 +334,8 @@ class JournalEntryDialog(QDialog):
                 continue
             try:
                 amount=float(
-                    amount_item.text()
-                ) if amount_item and amount_item.text() else 0
+                    amount_widget.text()
+                ) if amount_widget and amount_widget.text() else 0
             except ValueError:
                 QMessageBox.warning(
                     self,
@@ -358,11 +381,14 @@ class JournalEntryDialog(QDialog):
         row=self.lines_table.rowCount()
         self.lines_table.insertRow(row)
         account_dropdown=QComboBox()
+        account_dropdown.setMinimumHeight(
+            32
+        )
         account_dropdown.setSizeAdjustPolicy(
-            QComboBox.AdjustToContents
-        )        
+            QComboBox.AdjustToMinimumContentsLengthWithIcon
+        )    
         account_dropdown.view().setMinimumWidth(
-            450
+            300
         )
         if self.parent_app:
             accounts=self.parent_app.accounts.get_active_accounts()
@@ -377,11 +403,14 @@ class JournalEntryDialog(QDialog):
             account_dropdown
         )
         transaction_type_widget=QComboBox()
+        transaction_type_widget.setMinimumHeight(
+            32
+        )
         transaction_type_widget.setSizeAdjustPolicy(
-            QComboBox.AdjustToContents
-        )        
+            QComboBox.AdjustToMinimumContentsLengthWithIcon
+        )    
         transaction_type_widget.view().setMinimumWidth(
-            250
+            180
         )
         transaction_type_widget.addItems([
             "Cash",
@@ -397,24 +426,28 @@ class JournalEntryDialog(QDialog):
         ])
 
         def update_amount_color(text):
-            if self.lines_table.item(row,3):
+            amount_widget=self.lines_table.cellWidget(
+                row,
+                3
+            )
+            if amount_widget:
                 if text=="Debit":
-                    self.lines_table.item(
-                        row,
-                        3
-                    ).setForeground(Qt.red)
+                    amount_widget.setStyleSheet(
+                        "color:red;"
+                    )
                 else:
-                    self.lines_table.item(
-                        row,
-                        3
-                    ).setForeground(Qt.darkGreen)
-    
+                    amount_widget.setStyleSheet(
+                        "color:green;"
+                    )
         self.lines_table.setCellWidget(
             row,
             1,
             transaction_type_widget
         )
         entry_type_dropdown=QComboBox()
+        entry_type_dropdown.setMinimumHeight(
+            32
+        )
         entry_type_dropdown.addItems([
             "Debit",
             "Credit"
@@ -424,23 +457,34 @@ class JournalEntryDialog(QDialog):
             2,
             entry_type_dropdown
         )
-        amount_item=QTableWidgetItem(
+        amount_input=QLineEdit()
+        amount_input.setText(
             "0.00"
         )
-        amount_item.setForeground(
-            Qt.red
+        amount_input.setAlignment(
+            Qt.AlignRight
         )
-        self.lines_table.setItem(
+        amount_input.setValidator(
+            QDoubleValidator(
+                0.00,
+                999999999999.99,
+                2
+            )
+        )
+        self.lines_table.setCellWidget(
             row,
             3,
-            amount_item
+            amount_input
         )
         entry_type_dropdown.currentTextChanged.connect(
             update_amount_color
         )
         attach_btn=QPushButton(
-            "Attach"
-        )    
+            "📎 Attach"
+        )
+        attach_btn.setMinimumHeight(
+            32
+        )
         attach_btn.clicked.connect(
             self.attachment_placeholder
         )
@@ -449,7 +493,22 @@ class JournalEntryDialog(QDialog):
             5,
             attach_btn
         )
-        remove_btn=QPushButton("X")
+        remove_btn=QPushButton("✕")
+        remove_btn.setMinimumHeight(
+            32
+        )
+        remove_btn.setStyleSheet("""
+        QPushButton{
+            color:white;
+            background:#c62828;
+            border:none;
+            border-radius:4px;
+            font-weight:bold;
+        }
+        QPushButton:hover{
+            background:#b71c1c;
+        }
+        """)
         remove_btn.clicked.connect(
             lambda _, btn=remove_btn:
             self.remove_line(
