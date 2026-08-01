@@ -40,6 +40,12 @@ class FormulaPlugin:
             return "#ERROR"
     def apply_formula(self,row,column):
         item=self.window.table.item(row,column)
-        if item:
-            result=self.evaluate(item.text())
-            item.setText(str(result))
+        if not item:
+            return
+        text=item.text()
+        if not isinstance(text,str) or not text.startswith("="):
+            return
+        result=self.evaluate(text)
+        self.window.table.blockSignals(True)
+        item.setText(str(result))
+        self.window.table.blockSignals(False)

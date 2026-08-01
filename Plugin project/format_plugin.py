@@ -34,3 +34,20 @@ class FormatPlugin:
             else:
                 font.setUnderline(enabled)
             item.setFont(font)
+            
+    def set_strike(self,enabled=None):
+        for item in self.selected_items():
+            font=item.font()
+            if enabled is None:
+                font.setStrikeOut(not font.strikeOut())
+            else:
+                font.setStrikeOut(enabled)
+            item.setFont(font)
+            
+    def toggle_wrap_text(self):
+        rows=set()
+        for item in self.selected_items():
+            item.setText(item.text())
+            rows.add(item.row())
+        for row in rows:
+            self.table.resizeRowToContents(row)

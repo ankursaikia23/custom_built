@@ -37,3 +37,17 @@ class GridPlugin:
 
     def widget(self):
         return self.table
+    
+    def merge_selected_cells(self):
+        ranges=self.table.selectedRanges()
+        if not ranges:
+            return
+        selection=ranges[0]
+        row=selection.topRow()
+        col=selection.leftColumn()
+        if self.table.rowSpan(row,col)>1 or self.table.columnSpan(row,col)>1:
+            self.table.setSpan(row,col,1,1)
+            return
+        if selection.rowCount()<2 and selection.columnCount()<2:
+            return
+        self.table.setSpan(row,col,selection.rowCount(),selection.columnCount())

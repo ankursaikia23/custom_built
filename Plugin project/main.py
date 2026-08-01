@@ -1,5 +1,5 @@
 import sys
-from PyQt6.QtWidgets import QApplication,QMainWindow,QWidget,QVBoxLayout
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QMessageBox
 from grid_plugin import GridPlugin
 from cell_plugin import CellPlugin
 from toolbar_plugin import ToolbarPlugin
@@ -72,6 +72,8 @@ class SpreadsheetWindow(QMainWindow):
         self.table.cellChanged.connect(self.formula_plugin.apply_formula)
         self.settings_plugin.restore_window_state()
         self.connect_actions()
+        self.is_modified=False
+        self.table.itemChanged.connect(self.mark_modified)
         
     def connect_actions(self):
         self.menu_plugin.new_action.triggered.connect(self.file_plugin.new_file)
@@ -88,16 +90,50 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.copy_action.triggered.connect(self.clipboard_plugin.copy_selection)
         self.toolbar_plugin.cut_action.triggered.connect(self.clipboard_plugin.cut_selection)
         self.toolbar_plugin.paste_action.triggered.connect(self.clipboard_plugin.paste_selection)
+        self.toolbar_plugin.bold_action.triggered.connect(self.format_plugin.set_bold)
+        self.toolbar_plugin.italic_action.triggered.connect(self.format_plugin.set_italic)
+        self.toolbar_plugin.underline_action.triggered.connect(self.format_plugin.set_underline)
+        self.toolbar_plugin.strike_action.triggered.connect(self.format_plugin.set_strike)
+        self.toolbar_plugin.wrap_action.triggered.connect(self.format_plugin.toggle_wrap_text)
+        self.toolbar_plugin.merge_action.triggered.connect(self.grid_plugin.merge_selected_cells)
+        self.toolbar_plugin.left_action.triggered.connect(self.alignment_plugin.align_left)
+        self.toolbar_plugin.center_action.triggered.connect(self.alignment_plugin.align_center)
+        self.toolbar_plugin.right_action.triggered.connect(self.alignment_plugin.align_right)
+        self.toolbar_plugin.top_action.triggered.connect(self.alignment_plugin.align_top)
+        self.toolbar_plugin.middle_action.triggered.connect(self.alignment_plugin.align_middle)
+        self.toolbar_plugin.bottom_action.triggered.connect(self.alignment_plugin.align_bottom)
+        self.toolbar_plugin.font_color_action.triggered.connect(self.color_plugin.set_font_color)
+        self.toolbar_plugin.fill_color_action.triggered.connect(self.color_plugin.set_background_color)
+        self.toolbar_plugin.date_action.triggered.connect(self.date_plugin.insert_date)
         self.toolbar_plugin.image_action.triggered.connect(self.image_plugin.insert_image)
         self.toolbar_plugin.pdf_action.triggered.connect(self.pdf_plugin.insert_pdf)
         self.toolbar_plugin.export_pdf_action.triggered.connect(self.file_plugin.export_pdf)
+        self.toolbar_plugin.export_image_action.triggered.connect(self.file_plugin.export_image)
         
+    def mark_modified(self):
+        self.is_modified=True
+    
     def keyPressEvent(self,event):
         if self.keyboard_plugin.handle_key_press(event):
             return
         super().keyPressEvent(event)
         
     def closeEvent(self,event):
+        if self.is_modified:
+            reply=QMessageBox.question(
+                self,
+                "Save Changes",
+                "Do you want to save your changes?",
+                QMessageBox.StandardButton.Yes|
+                QMessageBox.StandardButton.No|
+                QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Yes
+            )
+            if reply==QMessageBox.StandardButton.Cancel:
+                event.ignore()
+                return
+            if reply==QMessageBox.StandardButton.Yes:
+                self.file_plugin.save_file()
         self.settings_plugin.save_window_state()
         event.accept()
 

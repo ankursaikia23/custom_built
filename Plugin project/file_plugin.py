@@ -1,7 +1,7 @@
 import json
 import os
 from PyQt6.QtWidgets import QFileDialog,QLabel,QTableWidgetItem
-from PyQt6.QtGui import QPixmap,QTextDocument
+from PyQt6.QtGui import QPixmap, QTextDocument
 from PyQt6.QtCore import Qt
 from PyQt6.QtPrintSupport import QPrinter
 
@@ -20,6 +20,8 @@ class FilePlugin:
             self.spreadsheet.pdf_plugin.clear()
         if hasattr(self.spreadsheet,"history_plugin"):
             self.spreadsheet.history_plugin.save_state()
+        if hasattr(self.spreadsheet,"is_modified"):
+            self.spreadsheet.is_modified=False
 
     def save_file(self):
         file,_=QFileDialog.getSaveFileName(self.spreadsheet,"Save Project","","JSON Files (*.json)")
@@ -39,6 +41,8 @@ class FilePlugin:
                 data["pdfs"].append({"row":r,"col":c,"path":path})
         with open(file,"w") as f:
             json.dump(data,f,indent=4)
+        if hasattr(self.spreadsheet,"is_modified"):
+            self.spreadsheet.is_modified=False
 
     def open_file(self):
         file,_=QFileDialog.getOpenFileName(self.spreadsheet,"Open Project","","JSON Files (*.json)")
@@ -61,6 +65,8 @@ class FilePlugin:
                     self.spreadsheet.pdf_plugin.set_pdf(pdf["row"],pdf["col"],pdf["path"])
         if hasattr(self.spreadsheet,"history_plugin"):
             self.spreadsheet.history_plugin.save_state()
+        if hasattr(self.spreadsheet,"is_modified"):
+            self.spreadsheet.is_modified=False
 
     def export_pdf(self):
         file,_=QFileDialog.getSaveFileName(self.spreadsheet,"Export PDF","","PDF Files (*.pdf)")
@@ -85,3 +91,15 @@ class FilePlugin:
         document=QTextDocument()
         document.setHtml(html)
         document.print(printer)
+        
+    def export_image(self):
+        file_name,_=QFileDialog.getSaveFileName(
+            self.spreadsheet,
+            "Export Image",
+            "",
+            "PNG Image (*.png);;JPEG Image (*.jpg)"
+        )
+        if not file_name:
+            return
+        pixmap=self.spreadsheet.table.grab()
+        pixmap.save(file_name)
