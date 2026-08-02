@@ -7,6 +7,27 @@ class FormatPlugin:
 
     def selected_items(self):
         return self.table.selectedItems()
+    
+    def get_selected_cell_format(self):
+        indexes=self.table.selectedIndexes()
+        if len(indexes)!=1:
+            return None
+        item=self.table.item(indexes[0].row(),indexes[0].column())
+        if item is None:
+            font=QFont()
+            return{
+                "bold":font.bold(),
+                "italic":font.italic(),
+                "underline":font.underline(),
+                "strike":font.strikeOut()
+            }
+        font=item.font()
+        return{
+            "bold":font.bold(),
+            "italic":font.italic(),
+            "underline":font.underline(),
+            "strike":font.strikeOut()
+        }
 
     def set_bold(self,enabled=None):
         for item in self.selected_items():

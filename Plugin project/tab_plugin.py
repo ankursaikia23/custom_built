@@ -1,0 +1,47 @@
+from PyQt6.QtWidgets import QTabWidget
+
+class TabPlugin:
+    def __init__(self,spreadsheet):
+        self.spreadsheet=spreadsheet
+        self.tabs=QTabWidget()
+        self.tabs.setTabsClosable(True)
+        self.tabs.tabCloseRequested.connect(self.close_tab)
+        self.tabs.currentChanged.connect(self.tab_changed)
+        self.tab_data=[]
+        
+    def widget(self):
+        return self.tabs
+
+    def add_tab(self,table,name="Sheet"):
+        self.tabs.addTab(table,name)
+        self.tab_data.append({
+            "table":table,
+            "modified":False,
+            "file":None
+        })
+
+    def current_table(self):
+        index=self.tabs.currentIndex()
+        if index<0:
+            return None
+        return self.tabs.widget(index)
+
+    def current_data(self):
+        index=self.tabs.currentIndex()
+        if index<0:
+            return None
+        return self.tab_data[index]
+
+    def tab_changed(self,index):
+        if index>=0:
+            table=self.tabs.widget(index)
+            table.setFocus()
+
+    def close_tab(self,index):
+        if len(self.tab_data)<=1:
+            return
+        self.tabs.removeTab(index)
+        self.tab_data.pop(index)
+
+    def all_tabs(self):
+        return self.tab_data

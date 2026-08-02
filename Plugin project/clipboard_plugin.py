@@ -28,42 +28,55 @@ class ClipboardPlugin:
             if hasattr(self.spreadsheet,"pdf_plugin"):
                 data["pdf"]=self.spreadsheet.pdf_plugin.pdfs.get((r,c))
             self.clipboard.append(data)
+            self.spreadsheet.statusbar_plugin.show_operation("Copied")
 
     def cut_selection(self):
+        indexes=self.table.selectedIndexes()
+        if not indexes:
+            return
+        before=[]
+        after=[]
         self.copy_selection()
-        for index in self.table.selectedIndexes():
+        for index in indexes:
             r=index.row()
             c=index.column()
+            before.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))
             self.table.takeItem(r,c)
             self.table.removeCellWidget(r,c)
             if hasattr(self.spreadsheet,"image_plugin"):
                 self.spreadsheet.image_plugin.images.pop((r,c),None)
             if hasattr(self.spreadsheet,"pdf_plugin"):
                 self.spreadsheet.pdf_plugin.pdfs.pop((r,c),None)
+            after.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))
+        self.spreadsheet.history_plugin.push_operation(before,after)
 
     def paste_selection(self):
         if not self.clipboard:
             return
-        sr=self.table.currentRow()
-        sc=self.table.currentColumn()
-        for cell in self.clipboard:
-            r=sr+cell["r"]
-            c=sc+cell["c"]
+        before=[]
+        after=[]
+        indexes=self.table.selectedIndexes()
+        if indexes:
+            start_row=min(i.row() for i in indexes)
+            start_col=min(i.column() for i in indexes)
+        else:
+            start_row=self.table.currentRow()
+            start_col=self.table.currentColumn()
+        if len(self.clipboard)==1 and len(indexes)>1:
+            targets=[(i.row(),i.column()) for i in indexes]
+        else:
+            targets=[]
+            for cell in self.clipboard:
+                targets.append((start_row+cell["r"],start_col+cell["c"]))
+        for i,(r,c) in enumerate(targets):
+            before.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))
+            if len(self.clipboard)==1:
+                cell=self.clipboard[0]
+            else:
+                cell=self.clipboard[i]
             self.table.takeItem(r,c)
             self.table.removeCellWidget(r,c)
             if cell["text"]:
                 self.table.setItem(r,c,QTableWidgetItem(cell["text"]))
-            if cell["image"] and os.path.exists(cell["image"]):
-                label=QLabel()
-                pixmap=QPixmap(cell["image"])
-                label.setPixmap(pixmap.scaled(150,150,Qt.AspectRatioMode.KeepAspectRatio,Qt.TransformationMode.SmoothTransformation))
-                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.table.setCellWidget(r,c,label)
-                if hasattr(self.spreadsheet,"image_plugin"):
-                    self.spreadsheet.image_plugin.images[(r,c)]=cell["image"]
-            if cell["pdf"] and os.path.exists(cell["pdf"]):
-                label=QLabel("📄\n"+os.path.basename(cell["pdf"]))
-                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.table.setCellWidget(r,c,label)
-                if hasattr(self.spreadsheet,"pdf_plugin"):
-                    self.spreadsheet.pdf_plugin.pdfs[(r,c)]=cell["pdf"]
+            after.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))
+        self.spreadsheet.history_plugin.push_operation(before,after)

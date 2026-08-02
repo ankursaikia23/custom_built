@@ -5,13 +5,16 @@ class CellPlugin:
         self.spreadsheet=spreadsheet
         self.table=spreadsheet.table
         self.edit_before=""
+        self.edit_snapshot=None
         self.table.itemDoubleClicked.connect(self.start_edit)
         self.table.itemChanged.connect(self.finish_edit)
 
     def start_edit(self,item):
         self.edit_before=""
+        self.edit_snapshot=None
         if item:
             self.edit_before=item.text()
+            self.edit_snapshot=self.spreadsheet.history_plugin.create_cell_snapshot(item.row(),item.column())
         self.table.editItem(item)
         editor=self.table.focusWidget()
         if editor and hasattr(editor,"selectAll"):
@@ -23,8 +26,10 @@ class CellPlugin:
         lines=max(1,item.text().count("\n")+1)
         fm=self.table.fontMetrics()
         self.table.setRowHeight(item.row(),max(30,lines*fm.lineSpacing()+10))
-        if item.text()!=self.edit_before and hasattr(self.spreadsheet,"history_plugin"):
-            self.spreadsheet.history_plugin.save_state()
+        if item.text()==self.edit_before:
+            return
+        after=self.spreadsheet.history_plugin.create_cell_snapshot(item.row(),item.column())
+        self.spreadsheet.history_plugin.push_operation([self.edit_snapshot],[after])
 
     def current_item(self):
         return self.table.currentItem()

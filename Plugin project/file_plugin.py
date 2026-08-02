@@ -1,6 +1,7 @@
 import json
 import os
-from PyQt6.QtWidgets import QFileDialog,QLabel,QTableWidgetItem
+from PyQt6.QtWidgets import QFileDialog,QLabel,QTableWidgetItem,QAbstractItemView
+from grid_plugin import GridPlugin
 from PyQt6.QtGui import QPixmap, QTextDocument
 from PyQt6.QtCore import Qt
 from PyQt6.QtPrintSupport import QPrinter
@@ -9,40 +10,88 @@ class FilePlugin:
     def __init__(self,spreadsheet):
         self.spreadsheet=spreadsheet
         self.table=spreadsheet.table
+        self.current_file=None
 
     def new_file(self):
+        before=[]
+
+        for r in range(self.table.rowCount()):
+            for c in range(self.table.columnCount()):
+                before.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))
         self.table.clearContents()
         self.table.setRowCount(100)
         self.table.setColumnCount(26)
+        after=[]
+
+        for r in range(self.table.rowCount()):
+            for c in range(self.table.columnCount()):
+                after.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))
+        self.spreadsheet.history_plugin.push_operation(before,after)
+    
         if hasattr(self.spreadsheet,"image_plugin"):
             self.spreadsheet.image_plugin.clear()
         if hasattr(self.spreadsheet,"pdf_plugin"):
             self.spreadsheet.pdf_plugin.clear()
-        if hasattr(self.spreadsheet,"history_plugin"):
-            self.spreadsheet.history_plugin.save_state()
+    
         if hasattr(self.spreadsheet,"is_modified"):
             self.spreadsheet.is_modified=False
-
-    def save_file(self):
-        file,_=QFileDialog.getSaveFileName(self.spreadsheet,"Save Project","","JSON Files (*.json)")
-        if not file:
-            return
-        data={"rows":self.table.rowCount(),"cols":self.table.columnCount(),"cells":[],"images":[],"pdfs":[]}
-        for r in range(self.table.rowCount()):
-            for c in range(self.table.columnCount()):
-                item=self.table.item(r,c)
+            
+    def save_table(self,table,file):
+        data={"rows":table.rowCount(),"cols":table.columnCount(),"cells":[],"images":[],"pdfs":[]}
+        for r in range(table.rowCount()):
+            for c in range(table.columnCount()):
+                item=table.item(r,c)
                 if item:
-                    data["cells"].append({"row":r,"col":c,"text":item.text()})
-        if hasattr(self.spreadsheet,"image_plugin"):
-            for (r,c),path in self.spreadsheet.image_plugin.images.items():
-                data["images"].append({"row":r,"col":c,"path":path})
-        if hasattr(self.spreadsheet,"pdf_plugin"):
-            for (r,c),path in self.spreadsheet.pdf_plugin.pdfs.items():
-                data["pdfs"].append({"row":r,"col":c,"path":path})
+                    data["cells"].append({
+                        "row":r,
+                        "col":c,
+                        "text":item.text()
+                    })
         with open(file,"w") as f:
             json.dump(data,f,indent=4)
+
+    def save_file(self):
+        tabs=self.spreadsheet.tab_plugin.all_tabs()
+        if len(tabs)>1:
+            folder,_=QFileDialog.getSaveFileName(
+                self.spreadsheet,
+                "Save Spreadsheet",
+                "",
+                "JSON Files (*.json)"
+            )
+            if not folder:
+                return
+            base,ext=os.path.splitext(folder)
+            for index,tab in enumerate(tabs):
+                file=f"{base}_Sheet{index+1}.json"
+                self.save_table(tab["table"],file)
+                tab["modified"]=False
+            self.spreadsheet.statusbar_plugin.show_operation("All Tabs Saved")
+            return
+        file,_=QFileDialog.getSaveFileName(
+            self.spreadsheet,
+            "Save Project",
+            "",
+            "JSON Files (*.json)"
+        )
+        if not file:
+            return
+        self.save_table(self.table,file)
+    
         if hasattr(self.spreadsheet,"is_modified"):
             self.spreadsheet.is_modified=False
+    
+        self.spreadsheet.statusbar_plugin.show_operation("Saved")
+        
+    def new_tab(self):
+        grid=GridPlugin()
+        table=grid.widget()
+        table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+        table.clearSelection()
+        table.setCurrentCell(-1,-1)
+        index=len(self.spreadsheet.tab_plugin.all_tabs())+1
+        self.spreadsheet.tab_plugin.add_tab(table,f"Sheet{index}")
 
     def open_file(self):
         file,_=QFileDialog.getOpenFileName(self.spreadsheet,"Open Project","","JSON Files (*.json)")
@@ -63,10 +112,12 @@ class FilePlugin:
             for pdf in data.get("pdfs",[]):
                 if os.path.exists(pdf["path"]):
                     self.spreadsheet.pdf_plugin.set_pdf(pdf["row"],pdf["col"],pdf["path"])
-        if hasattr(self.spreadsheet,"history_plugin"):
-            self.spreadsheet.history_plugin.save_state()
+        self.spreadsheet.history_plugin.undo_stack.clear()
+        self.spreadsheet.history_plugin.redo_stack.clear()
+        self.spreadsheet.history_plugin.redo_stack.clear()
         if hasattr(self.spreadsheet,"is_modified"):
             self.spreadsheet.is_modified=False
+        self.spreadsheet.statusbar_plugin.show_operation("Opened")
 
     def export_pdf(self):
         file,_=QFileDialog.getSaveFileName(self.spreadsheet,"Export PDF","","PDF Files (*.pdf)")
@@ -91,6 +142,7 @@ class FilePlugin:
         document=QTextDocument()
         document.setHtml(html)
         document.print(printer)
+        self.spreadsheet.statusbar_plugin.show_operation("PDF Exported")
         
     def export_image(self):
         file_name,_=QFileDialog.getSaveFileName(
@@ -103,3 +155,4 @@ class FilePlugin:
             return
         pixmap=self.spreadsheet.table.grab()
         pixmap.save(file_name)
+        self.spreadsheet.statusbar_plugin.show_operation("Image Exported")

@@ -21,6 +21,7 @@ class GridPlugin:
         self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setDefaultSectionSize(120)
         self.table.verticalHeader().setDefaultSectionSize(30)
+        self.table.itemSelectionChanged.connect(self.on_selection_changed)
         self.table.setStyleSheet("""
         QTableWidget::item:selected{
         background-color:#4CAF50;
@@ -37,6 +38,10 @@ class GridPlugin:
 
     def widget(self):
         return self.table
+    
+    def on_selection_changed(self):
+        if hasattr(self,"selection_changed_callback") and callable(self.selection_changed_callback):
+            self.selection_changed_callback()
     
     def merge_selected_cells(self):
         ranges=self.table.selectedRanges()

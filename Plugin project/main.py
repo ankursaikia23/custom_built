@@ -27,14 +27,17 @@ from comment_plugin import CommentPlugin
 from theme_plugin import ThemePlugin
 from autosave_plugin import AutoSavePlugin
 from settings_plugin import SettingsPlugin
+from tab_plugin import TabPlugin
 
 class SpreadsheetWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Spreadsheet")
         self.resize(1200,700)
+        self.tab_plugin=TabPlugin(self)
         self.grid_plugin=GridPlugin()
         self.table=self.grid_plugin.widget()
+        self.tab_plugin.add_tab(self.table,"Sheet1")
         self.toolbar_plugin=ToolbarPlugin(self)
         self.menu_plugin=MenuPlugin(self)
         self.statusbar_plugin=StatusBarPlugin(self)
@@ -66,17 +69,21 @@ class SpreadsheetWindow(QMainWindow):
         self.layout.setContentsMargins(0,0,0,0)
         self.layout.setSpacing(0)
         self.layout.addWidget(self.formulabar_plugin.widget())
-        self.layout.addWidget(self.table)
+        self.layout.addWidget(self.tab_plugin.widget())
         self.setCentralWidget(self.container)
         self.statusBar().addPermanentWidget(self.zoom_plugin.widget())
         self.table.cellChanged.connect(self.formula_plugin.apply_formula)
+        self.tab_plugin.tabs.currentChanged.connect(self.change_active_tab)
         self.settings_plugin.restore_window_state()
         self.connect_actions()
+        self.grid_plugin.selection_changed_callback=self.update_toolbar_state
         self.is_modified=False
         self.table.itemChanged.connect(self.mark_modified)
         
     def connect_actions(self):
         self.menu_plugin.new_action.triggered.connect(self.file_plugin.new_file)
+        self.menu_plugin.new_tab_action.triggered.connect(self.file_plugin.new_tab)
+        self.menu_plugin.save_all_action.triggered.connect(self.file_plugin.save_file)
         self.menu_plugin.open_action.triggered.connect(self.file_plugin.open_file)
         self.menu_plugin.save_action.triggered.connect(self.file_plugin.save_file)
         self.menu_plugin.export_pdf_action.triggered.connect(self.file_plugin.export_pdf)
@@ -96,12 +103,8 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.strike_action.triggered.connect(self.format_plugin.set_strike)
         self.toolbar_plugin.wrap_action.triggered.connect(self.format_plugin.toggle_wrap_text)
         self.toolbar_plugin.merge_action.triggered.connect(self.grid_plugin.merge_selected_cells)
-        self.toolbar_plugin.left_action.triggered.connect(self.alignment_plugin.align_left)
-        self.toolbar_plugin.center_action.triggered.connect(self.alignment_plugin.align_center)
-        self.toolbar_plugin.right_action.triggered.connect(self.alignment_plugin.align_right)
-        self.toolbar_plugin.top_action.triggered.connect(self.alignment_plugin.align_top)
-        self.toolbar_plugin.middle_action.triggered.connect(self.alignment_plugin.align_middle)
-        self.toolbar_plugin.bottom_action.triggered.connect(self.alignment_plugin.align_bottom)
+        self.toolbar_plugin.horizontal_alignment.currentTextChanged.connect(self.change_horizontal_alignment)
+        self.toolbar_plugin.vertical_alignment.currentTextChanged.connect(self.change_vertical_alignment)
         self.toolbar_plugin.font_color_action.triggered.connect(self.color_plugin.set_font_color)
         self.toolbar_plugin.fill_color_action.triggered.connect(self.color_plugin.set_background_color)
         self.toolbar_plugin.date_action.triggered.connect(self.date_plugin.insert_date)
@@ -110,6 +113,51 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.export_pdf_action.triggered.connect(self.file_plugin.export_pdf)
         self.toolbar_plugin.export_image_action.triggered.connect(self.file_plugin.export_image)
         
+    def change_horizontal_alignment(self,text):
+        if text=="Left":
+            self.alignment_plugin.align_left()
+        elif text=="Center":
+            self.alignment_plugin.align_center()
+        elif text=="Right":
+            self.alignment_plugin.align_right()
+        
+    def change_vertical_alignment(self,text):
+        if text=="Top":
+            self.alignment_plugin.align_top()
+        elif text=="Middle":
+            self.alignment_plugin.align_middle()
+        elif text=="Bottom":
+            self.alignment_plugin.align_bottom()
+        
+    def update_toolbar_state(self):
+        state=self.format_plugin.get_selected_cell_format()
+        if state is None:
+            self.toolbar_plugin.bold_action.setChecked(False)
+            self.toolbar_plugin.italic_action.setChecked(False)
+            self.toolbar_plugin.underline_action.setChecked(False)
+            self.toolbar_plugin.strike_action.setChecked(False)
+            return
+        self.toolbar_plugin.bold_action.setChecked(state["bold"])
+        self.toolbar_plugin.italic_action.setChecked(state["italic"])
+        self.toolbar_plugin.underline_action.setChecked(state["underline"])
+        self.toolbar_plugin.strike_action.setChecked(state["strike"])
+    
+    def change_active_tab(self,index):
+        table=self.tab_plugin.current_table()
+        if table:
+            self.table=table
+            self.grid_plugin.table=table
+            self.cell_plugin.table=table
+            self.format_plugin.table=table
+            self.alignment_plugin.table=table
+            self.color_plugin.table=table
+            self.clipboard_plugin.table=table
+            self.history_plugin.table=table
+            self.file_plugin.table=table
+            self.formula_plugin.window=self
+            self.keyboard_plugin.table=table
+            table.setFocus()
+    
     def mark_modified(self):
         self.is_modified=True
     
@@ -119,21 +167,31 @@ class SpreadsheetWindow(QMainWindow):
         super().keyPressEvent(event)
         
     def closeEvent(self,event):
-        if self.is_modified:
+        modified=False
+    
+        for tab in self.tab_plugin.all_tabs():
+            if tab["modified"]:
+                modified=True
+                break
+    
+        if modified:
             reply=QMessageBox.question(
                 self,
                 "Save Changes",
-                "Do you want to save your changes?",
+                "Do you want to save all tabs?",
                 QMessageBox.StandardButton.Yes|
                 QMessageBox.StandardButton.No|
                 QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Yes
             )
+    
             if reply==QMessageBox.StandardButton.Cancel:
                 event.ignore()
                 return
+    
             if reply==QMessageBox.StandardButton.Yes:
                 self.file_plugin.save_file()
+    
         self.settings_plugin.save_window_state()
         event.accept()
 
