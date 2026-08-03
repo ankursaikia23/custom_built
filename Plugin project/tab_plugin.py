@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QTabWidget
+from PyQt6.QtWidgets import QTabWidget, QInputDialog
 
 class TabPlugin:
     def __init__(self,spreadsheet):
@@ -7,6 +7,7 @@ class TabPlugin:
         self.tabs.setTabsClosable(True)
         self.tabs.tabCloseRequested.connect(self.close_tab)
         self.tabs.currentChanged.connect(self.tab_changed)
+        self.tabs.tabBarDoubleClicked.connect(self.rename_tab)
         self.tab_data=[]
         
     def widget(self):
@@ -36,6 +37,21 @@ class TabPlugin:
         if index>=0:
             table=self.tabs.widget(index)
             table.setFocus()
+            
+    def rename_tab(self,index):
+        if index<0:
+            return
+        current=self.tabs.tabText(index)
+        name,ok=QInputDialog.getText(
+            self.spreadsheet,
+            "Rename Sheet",
+            "Sheet Name:",
+            text=current
+        )
+        if ok:
+            name=name.strip()
+            if name:
+                self.tabs.setTabText(index,name)
 
     def close_tab(self,index):
         if len(self.tab_data)<=1:

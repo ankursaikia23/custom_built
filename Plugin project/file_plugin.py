@@ -1,5 +1,6 @@
 import json
 import os
+import pandas as pd
 from PyQt6.QtWidgets import QFileDialog,QLabel,QTableWidgetItem,QAbstractItemView
 from grid_plugin import GridPlugin
 from PyQt6.QtGui import QPixmap, QTextDocument
@@ -92,31 +93,97 @@ class FilePlugin:
         table.setCurrentCell(-1,-1)
         index=len(self.spreadsheet.tab_plugin.all_tabs())+1
         self.spreadsheet.tab_plugin.add_tab(table,f"Sheet{index}")
+        self.spreadsheet.tab_plugin.tabs.setCurrentIndex(index-1)
 
     def open_file(self):
-        file,_=QFileDialog.getOpenFileName(self.spreadsheet,"Open Project","","JSON Files (*.json)")
+        file,_=QFileDialog.getOpenFileName(
+            self.spreadsheet,
+            "Open Spreadsheet",
+            "",
+            "All Supported (*.json *.xlsx *.xls *.csv *.tsv *.ods);;"
+            "JSON (*.json);;"
+            "Excel (*.xlsx *.xls);;"
+            "CSV (*.csv);;"
+            "TSV (*.tsv);;"
+            "OpenDocument (*.ods)"
+        )
+    
         if not file:
             return
-        with open(file,"r") as f:
-            data=json.load(f)
+    
+        ext=os.path.splitext(file)[1].lower()
+    
         self.new_file()
-        self.table.setRowCount(data["rows"])
-        self.table.setColumnCount(data["cols"])
-        for cell in data["cells"]:
-            self.table.setItem(cell["row"],cell["col"],QTableWidgetItem(cell["text"]))
-        if hasattr(self.spreadsheet,"image_plugin"):
-            for image in data.get("images",[]):
-                if os.path.exists(image["path"]):
-                    self.spreadsheet.image_plugin.set_image(image["row"],image["col"],image["path"])
-        if hasattr(self.spreadsheet,"pdf_plugin"):
-            for pdf in data.get("pdfs",[]):
-                if os.path.exists(pdf["path"]):
-                    self.spreadsheet.pdf_plugin.set_pdf(pdf["row"],pdf["col"],pdf["path"])
+    
+        if ext==".json":
+            with open(file,"r") as f:
+                data=json.load(f)
+    
+            self.table.setRowCount(data["rows"])
+            self.table.setColumnCount(data["cols"])
+    
+            for cell in data["cells"]:
+                self.table.setItem(
+                    cell["row"],
+                    cell["col"],
+                    QTableWidgetItem(cell["text"])
+                )
+    
+            if hasattr(self.spreadsheet,"image_plugin"):
+                for image in data.get("images",[]):
+                    if os.path.exists(image["path"]):
+                        self.spreadsheet.image_plugin.set_image(
+                            image["row"],
+                            image["col"],
+                            image["path"]
+                        )
+    
+            if hasattr(self.spreadsheet,"pdf_plugin"):
+                for pdf in data.get("pdfs",[]):
+                    if os.path.exists(pdf["path"]):
+                        self.spreadsheet.pdf_plugin.set_pdf(
+                            pdf["row"],
+                            pdf["col"],
+                            pdf["path"]
+                        )
+    
+        else:
+    
+            if ext==".csv":
+                df=pd.read_csv(file,header=None,dtype=str)
+    
+            elif ext==".tsv":
+                df=pd.read_csv(file,sep="\t",header=None,dtype=str)
+    
+            elif ext in (".xlsx",".xls"):
+                df=pd.read_excel(file,header=None,dtype=str)
+    
+            elif ext==".ods":
+                df=pd.read_excel(file,engine="odf",header=None,dtype=str)
+    
+            else:
+                return
+    
+            rows=len(df.index)
+            cols=len(df.columns)
+    
+            self.table.setRowCount(max(rows,100))
+            self.table.setColumnCount(max(cols,26))
+    
+            for r in range(rows):
+                for c in range(cols):
+                    value=df.iat[r,c]
+                    if pd.isna(value):
+                        continue
+                    self.table.setItem(r,c,QTableWidgetItem(str(value)))
+    
+        self.current_file=file
         self.spreadsheet.history_plugin.undo_stack.clear()
         self.spreadsheet.history_plugin.redo_stack.clear()
-        self.spreadsheet.history_plugin.redo_stack.clear()
+    
         if hasattr(self.spreadsheet,"is_modified"):
             self.spreadsheet.is_modified=False
+    
         self.spreadsheet.statusbar_plugin.show_operation("Opened")
 
     def export_pdf(self):

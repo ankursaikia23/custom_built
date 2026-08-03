@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QTableWidget,QAbstractItemView,QHeaderView
 from PyQt6.QtCore import Qt
+from border_delegate import BorderDelegate
 
 class GridPlugin:
     def __init__(self):
@@ -15,6 +16,7 @@ class GridPlugin:
         self.table.setUpdatesEnabled(True)
         self.table.setCornerButtonEnabled(False)
         self.table.setShowGrid(True)
+        self.table.setItemDelegate(BorderDelegate())
         self.table.horizontalHeader().setSectionsClickable(True)
         self.table.verticalHeader().setSectionsClickable(True)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)

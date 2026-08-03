@@ -3,7 +3,6 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QMe
 from grid_plugin import GridPlugin
 from cell_plugin import CellPlugin
 from toolbar_plugin import ToolbarPlugin
-from menu_plugin import MenuPlugin
 from statusbar_plugin import StatusBarPlugin
 from formulabar_plugin import FormulaBarPlugin
 from contextmenu_plugin import ContextMenuPlugin
@@ -28,10 +27,12 @@ from theme_plugin import ThemePlugin
 from autosave_plugin import AutoSavePlugin
 from settings_plugin import SettingsPlugin
 from tab_plugin import TabPlugin
+from border_plugin import BorderPlugin
 
 class SpreadsheetWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.menuBar().hide()
         self.setWindowTitle("Spreadsheet")
         self.resize(1200,700)
         self.tab_plugin=TabPlugin(self)
@@ -39,7 +40,6 @@ class SpreadsheetWindow(QMainWindow):
         self.table=self.grid_plugin.widget()
         self.tab_plugin.add_tab(self.table,"Sheet1")
         self.toolbar_plugin=ToolbarPlugin(self)
-        self.menu_plugin=MenuPlugin(self)
         self.statusbar_plugin=StatusBarPlugin(self)
         self.formulabar_plugin=FormulaBarPlugin(self)
         self.cell_plugin=CellPlugin(self)
@@ -48,6 +48,7 @@ class SpreadsheetWindow(QMainWindow):
         self.format_plugin=FormatPlugin(self)
         self.alignment_plugin=AlignmentPlugin(self)
         self.color_plugin=ColorPlugin(self)
+        self.border_plugin=BorderPlugin(self)
         self.image_plugin=ImagePlugin(self)
         self.pdf_plugin=PDFPlugin(self)
         self.date_plugin=DatePlugin(self)
@@ -81,15 +82,8 @@ class SpreadsheetWindow(QMainWindow):
         self.table.itemChanged.connect(self.mark_modified)
         
     def connect_actions(self):
-        self.menu_plugin.new_action.triggered.connect(self.file_plugin.new_file)
-        self.menu_plugin.new_tab_action.triggered.connect(self.file_plugin.new_tab)
-        self.menu_plugin.save_all_action.triggered.connect(self.file_plugin.save_file)
-        self.menu_plugin.open_action.triggered.connect(self.file_plugin.open_file)
-        self.menu_plugin.save_action.triggered.connect(self.file_plugin.save_file)
-        self.menu_plugin.export_pdf_action.triggered.connect(self.file_plugin.export_pdf)
-        self.menu_plugin.insert_image_action.triggered.connect(self.image_plugin.insert_image)
-        self.menu_plugin.insert_pdf_action.triggered.connect(self.pdf_plugin.insert_pdf)
         self.toolbar_plugin.new_action.triggered.connect(self.file_plugin.new_file)
+        self.toolbar_plugin.new_tab_action.triggered.connect(self.file_plugin.new_tab)
         self.toolbar_plugin.open_action.triggered.connect(self.file_plugin.open_file)
         self.toolbar_plugin.save_action.triggered.connect(self.file_plugin.save_file)
         self.toolbar_plugin.undo_action.triggered.connect(self.history_plugin.undo)
@@ -107,6 +101,14 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.vertical_alignment.currentTextChanged.connect(self.change_vertical_alignment)
         self.toolbar_plugin.font_color_action.triggered.connect(self.color_plugin.set_font_color)
         self.toolbar_plugin.fill_color_action.triggered.connect(self.color_plugin.set_background_color)
+        self.toolbar_plugin.all_border_action.triggered.connect(lambda:self.border_plugin.apply_border("all"))
+        self.toolbar_plugin.outer_border_action.triggered.connect(lambda:self.border_plugin.apply_border("all"))
+        self.toolbar_plugin.inner_border_action.triggered.connect(lambda:self.border_plugin.apply_border("all"))
+        self.toolbar_plugin.top_border_action.triggered.connect(lambda:self.border_plugin.apply_border("top"))
+        self.toolbar_plugin.bottom_border_action.triggered.connect(lambda:self.border_plugin.apply_border("bottom"))
+        self.toolbar_plugin.left_border_action.triggered.connect(lambda:self.border_plugin.apply_border("left"))
+        self.toolbar_plugin.right_border_action.triggered.connect(lambda:self.border_plugin.apply_border("right"))
+        self.toolbar_plugin.no_border_action.triggered.connect(self.border_plugin.remove_border)
         self.toolbar_plugin.date_action.triggered.connect(self.date_plugin.insert_date)
         self.toolbar_plugin.image_action.triggered.connect(self.image_plugin.insert_image)
         self.toolbar_plugin.pdf_action.triggered.connect(self.pdf_plugin.insert_pdf)
@@ -167,30 +169,22 @@ class SpreadsheetWindow(QMainWindow):
         super().keyPressEvent(event)
         
     def closeEvent(self,event):
-        modified=False
+        reply=QMessageBox.question(
+            self,
+            "Exit Spreadsheet",
+            "Do you want to save before closing?",
+            QMessageBox.StandardButton.Yes|
+            QMessageBox.StandardButton.No|
+            QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Yes
+        )
     
-        for tab in self.tab_plugin.all_tabs():
-            if tab["modified"]:
-                modified=True
-                break
+        if reply==QMessageBox.StandardButton.Cancel:
+            event.ignore()
+            return
     
-        if modified:
-            reply=QMessageBox.question(
-                self,
-                "Save Changes",
-                "Do you want to save all tabs?",
-                QMessageBox.StandardButton.Yes|
-                QMessageBox.StandardButton.No|
-                QMessageBox.StandardButton.Cancel,
-                QMessageBox.StandardButton.Yes
-            )
-    
-            if reply==QMessageBox.StandardButton.Cancel:
-                event.ignore()
-                return
-    
-            if reply==QMessageBox.StandardButton.Yes:
-                self.file_plugin.save_file()
+        if reply==QMessageBox.StandardButton.Yes:
+            self.file_plugin.save_file()
     
         self.settings_plugin.save_window_state()
         event.accept()
