@@ -1,8 +1,10 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QMessageBox
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox    
+)
 from grid_plugin import GridPlugin
 from cell_plugin import CellPlugin
-from toolbar_plugin import ToolbarPlugin
+from sidebar_plugin import SidebarPlugin
 from statusbar_plugin import StatusBarPlugin
 from formulabar_plugin import FormulaBarPlugin
 from contextmenu_plugin import ContextMenuPlugin
@@ -10,6 +12,7 @@ from keyboard_plugin import KeyboardPlugin
 from format_plugin import FormatPlugin
 from alignment_plugin import AlignmentPlugin
 from color_plugin import ColorPlugin
+from border_plugin import BorderPlugin, BorderDelegate
 from image_plugin import ImagePlugin
 from pdf_plugin import PDFPlugin
 from date_plugin import DatePlugin
@@ -27,7 +30,6 @@ from theme_plugin import ThemePlugin
 from autosave_plugin import AutoSavePlugin
 from settings_plugin import SettingsPlugin
 from tab_plugin import TabPlugin
-from border_plugin import BorderPlugin
 
 class SpreadsheetWindow(QMainWindow):
     def __init__(self):
@@ -39,7 +41,7 @@ class SpreadsheetWindow(QMainWindow):
         self.grid_plugin=GridPlugin()
         self.table=self.grid_plugin.widget()
         self.tab_plugin.add_tab(self.table,"Sheet1")
-        self.toolbar_plugin=ToolbarPlugin(self)
+        self.toolbar_plugin=SidebarPlugin(self)
         self.statusbar_plugin=StatusBarPlugin(self)
         self.formulabar_plugin=FormulaBarPlugin(self)
         self.cell_plugin=CellPlugin(self)
@@ -66,11 +68,19 @@ class SpreadsheetWindow(QMainWindow):
         self.autosave_plugin=AutoSavePlugin(self)
         self.settings_plugin=SettingsPlugin(self)
         self.container=QWidget()
-        self.layout=QVBoxLayout(self.container)
-        self.layout.setContentsMargins(0,0,0,0)
-        self.layout.setSpacing(0)
-        self.layout.addWidget(self.formulabar_plugin.widget())
-        self.layout.addWidget(self.tab_plugin.widget())
+        self.main_layout=QHBoxLayout(self.container)
+        self.main_layout.setContentsMargins(0,0,0,0)
+        self.main_layout.setSpacing(0)
+        self.main_layout.addWidget(self.toolbar_plugin)
+        self.right_panel=QWidget()
+        self.right_layout=QVBoxLayout(self.right_panel)
+        self.right_layout.setContentsMargins(0,0,0,0)
+        self.right_layout.setSpacing(0)
+        self.right_layout.addWidget(self.formulabar_plugin.widget())
+        self.right_layout.addWidget(self.tab_plugin.widget())
+        self.main_layout.addWidget(self.right_panel)
+        self.main_layout.setStretch(0,0)
+        self.main_layout.setStretch(1,1)
         self.setCentralWidget(self.container)
         self.statusBar().addPermanentWidget(self.zoom_plugin.widget())
         self.table.cellChanged.connect(self.formula_plugin.apply_formula)
@@ -101,14 +111,19 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.vertical_alignment.currentTextChanged.connect(self.change_vertical_alignment)
         self.toolbar_plugin.font_color_action.triggered.connect(self.color_plugin.set_font_color)
         self.toolbar_plugin.fill_color_action.triggered.connect(self.color_plugin.set_background_color)
-        self.toolbar_plugin.all_border_action.triggered.connect(lambda:self.border_plugin.apply_border("all"))
-        self.toolbar_plugin.outer_border_action.triggered.connect(lambda:self.border_plugin.apply_border("all"))
-        self.toolbar_plugin.inner_border_action.triggered.connect(lambda:self.border_plugin.apply_border("all"))
+        self.toolbar_plugin.all_border_action.triggered.connect(lambda:self.border_plugin.apply_border("all"))    
+        self.toolbar_plugin.outer_border_action.triggered.connect(lambda:self.border_plugin.apply_border("outer"))
+        self.toolbar_plugin.inner_border_action.triggered.connect(lambda:self.border_plugin.apply_border("inner"))        
         self.toolbar_plugin.top_border_action.triggered.connect(lambda:self.border_plugin.apply_border("top"))
         self.toolbar_plugin.bottom_border_action.triggered.connect(lambda:self.border_plugin.apply_border("bottom"))
         self.toolbar_plugin.left_border_action.triggered.connect(lambda:self.border_plugin.apply_border("left"))
         self.toolbar_plugin.right_border_action.triggered.connect(lambda:self.border_plugin.apply_border("right"))
-        self.toolbar_plugin.no_border_action.triggered.connect(self.border_plugin.remove_border)
+        self.toolbar_plugin.no_border_action.triggered.connect(lambda:self.border_plugin.apply_border("none"))
+        self.toolbar_plugin.sum_action.triggered.connect(lambda:self.formula_plugin.insert_function("SUM"))
+        self.toolbar_plugin.average_action.triggered.connect(lambda:self.formula_plugin.insert_function("AVERAGE"))
+        self.toolbar_plugin.count_action.triggered.connect(lambda:self.formula_plugin.insert_function("COUNT"))
+        self.toolbar_plugin.min_action.triggered.connect(lambda:self.formula_plugin.insert_function("MIN"))
+        self.toolbar_plugin.max_action.triggered.connect(lambda:self.formula_plugin.insert_function("MAX"))
         self.toolbar_plugin.date_action.triggered.connect(self.date_plugin.insert_date)
         self.toolbar_plugin.image_action.triggered.connect(self.image_plugin.insert_image)
         self.toolbar_plugin.pdf_action.triggered.connect(self.pdf_plugin.insert_pdf)
@@ -153,6 +168,9 @@ class SpreadsheetWindow(QMainWindow):
             self.format_plugin.table=table
             self.alignment_plugin.table=table
             self.color_plugin.table=table
+            self.border_plugin.table=table
+            self.border_plugin.delegate=BorderDelegate(self.border_plugin,table)
+            table.setItemDelegate(self.border_plugin.delegate)
             self.clipboard_plugin.table=table
             self.history_plugin.table=table
             self.file_plugin.table=table
@@ -162,6 +180,7 @@ class SpreadsheetWindow(QMainWindow):
     
     def mark_modified(self):
         self.is_modified=True
+        self.formula_plugin.recalculate()
     
     def keyPressEvent(self,event):
         if self.keyboard_plugin.handle_key_press(event):

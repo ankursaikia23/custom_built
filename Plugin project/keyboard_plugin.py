@@ -28,6 +28,16 @@ class KeyboardPlugin:
                 if hasattr(self.spreadsheet,"history_plugin"):
                     self.spreadsheet.history_plugin.redo()
                 return True
+            if event.key() in(Qt.Key.Key_Delete,Qt.Key.Key_Backspace):
+                self.table.blockSignals(True)
+                for item in self.table.selectedItems():
+                    item.setText("")
+                    item.setData(Qt.ItemDataRole.UserRole,None)
+                self.table.blockSignals(False)
+                if hasattr(self.spreadsheet,"formula_plugin"):
+                    self.spreadsheet.formula_plugin.recalculate()
+                self.table.viewport().update()
+                return True
         if event.key() in(Qt.Key.Key_Return,Qt.Key.Key_Enter):
             if self.table.state()==self.table.State.EditingState:
                 self.table.closePersistentEditor(self.table.currentItem())

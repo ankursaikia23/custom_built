@@ -73,6 +73,19 @@ class ToolbarPlugin:
         self.left_border_action=self.border_menu.addAction("Left Border")
         self.right_border_action=self.border_menu.addAction("Right Border")
         self.no_border_action=self.border_menu.addAction("No Border")
+        self.formula_button=QToolButton()
+        self.formula_button.setIcon(self.get_icon("Formulas"))
+        self.formula_button.setIconSize(QSize(20,20))
+        self.formula_button.setFixedSize(40,40)
+        self.formula_button.setToolTip("Formulas")
+        self.formula_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.formula_menu=QMenu()
+        self.formula_button.setMenu(self.formula_menu)
+        self.sum_action=self.formula_menu.addAction("SUM")
+        self.average_action=self.formula_menu.addAction("AVERAGE")
+        self.count_action=self.formula_menu.addAction("COUNT")
+        self.min_action=self.formula_menu.addAction("MIN")
+        self.max_action=self.formula_menu.addAction("MAX")
         self.image_action=QAction("Insert Image",spreadsheet)
         self.image_action.setIcon(self.get_icon("Insert Image"))
         self.pdf_action=QAction("Insert PDF",spreadsheet)
@@ -113,6 +126,7 @@ class ToolbarPlugin:
         self.toolbar.addAction(self.image_action)
         self.toolbar.addAction(self.pdf_action)
         self.toolbar.addAction(self.date_action)
+        self.toolbar.addWidget(self.formula_button)
     
     def get_icon(self,name):
         icon_path=os.path.join(
