@@ -41,6 +41,22 @@ class GridPlugin:
     def widget(self):
         return self.table
     
+    def refresh_headers(self):
+        self.table.setVerticalHeaderLabels(
+            [str(i+1) for i in range(self.table.rowCount())]
+        )
+        labels=[]
+        for i in range(self.table.columnCount()):
+            n=i
+            text=""
+            while True:
+                text=chr(65+n%26)+text
+                n=n//26-1
+                if n<0:
+                    break
+            labels.append(text)
+        self.table.setHorizontalHeaderLabels(labels)
+    
     def on_selection_changed(self):
         if hasattr(self,"selection_changed_callback") and callable(self.selection_changed_callback):
             self.selection_changed_callback()

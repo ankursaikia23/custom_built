@@ -72,6 +72,46 @@ class BorderPlugin:
         self.table.viewport().update()
         self.table.viewport().repaint()
         
+    def shift_rows(self,start_row,offset):
+        updated={}
+        for (row,col),border in self.border_data.items():
+            if row>=start_row:
+                updated[(row+offset,col)]=border.copy()
+            else:
+                updated[(row,col)]=border.copy()
+        self.border_data=updated
+        self.refresh()
+    
+    def shift_columns(self,start_col,offset):
+        updated={}
+        for (row,col),border in self.border_data.items():
+            if col>=start_col:
+                updated[(row,col+offset)]=border.copy()
+            else:
+                updated[(row,col)]=border.copy()
+        self.border_data=updated
+        self.refresh()
+    
+    def remove_rows(self,start_row,count):
+        updated={}
+        for (row,col),border in self.border_data.items():
+            if row<start_row:
+                updated[(row,col)]=border.copy()
+            elif row>=start_row+count:
+                updated[(row-count,col)]=border.copy()
+        self.border_data=updated
+        self.refresh()
+    
+    def remove_columns(self,start_col,count):
+        updated={}
+        for (row,col),border in self.border_data.items():
+            if col<start_col:
+                updated[(row,col)]=border.copy()
+            elif col>=start_col+count:
+                updated[(row,col-count)]=border.copy()
+        self.border_data=updated
+        self.refresh()
+        
     def apply_border(self,border_type):
         ranges=self.table.selectedRanges()
     

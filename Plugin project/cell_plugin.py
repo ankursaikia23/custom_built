@@ -30,6 +30,8 @@ class CellPlugin:
             return
         after=self.spreadsheet.history_plugin.create_cell_snapshot(item.row(),item.column())
         self.spreadsheet.history_plugin.push_operation([self.edit_snapshot],[after])
+        if hasattr(self.spreadsheet,"formula_plugin"):
+            self.spreadsheet.formula_plugin.recalculate()
 
     def current_item(self):
         return self.table.currentItem()

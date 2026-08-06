@@ -162,6 +162,14 @@ class SpreadsheetWindow(QMainWindow):
     def change_active_tab(self,index):
         table=self.tab_plugin.current_table()
         if table:
+            try:
+                table.cellChanged.disconnect()
+            except:
+                pass
+            try:
+                table.itemChanged.disconnect()
+            except:
+                pass
             self.table=table
             self.grid_plugin.table=table
             self.cell_plugin.table=table
@@ -176,6 +184,8 @@ class SpreadsheetWindow(QMainWindow):
             self.file_plugin.table=table
             self.formula_plugin.window=self
             self.keyboard_plugin.table=table
+            table.cellChanged.connect(self.formula_plugin.apply_formula)
+            table.itemChanged.connect(self.mark_modified)
             table.setFocus()
     
     def mark_modified(self):

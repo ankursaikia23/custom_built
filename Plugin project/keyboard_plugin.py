@@ -30,13 +30,14 @@ class KeyboardPlugin:
                 return True
             if event.key() in(Qt.Key.Key_Delete,Qt.Key.Key_Backspace):
                 self.table.blockSignals(True)
+                changed=[]
                 for item in self.table.selectedItems():
+                    changed.append(item)
                     item.setText("")
                     item.setData(Qt.ItemDataRole.UserRole,None)
                 self.table.blockSignals(False)
-                if hasattr(self.spreadsheet,"formula_plugin"):
-                    self.spreadsheet.formula_plugin.recalculate()
-                self.table.viewport().update()
+                for item in changed:
+                    self.spreadsheet.cell_plugin.finish_edit(item)
                 return True
         if event.key() in(Qt.Key.Key_Return,Qt.Key.Key_Enter):
             if self.table.state()==self.table.State.EditingState:

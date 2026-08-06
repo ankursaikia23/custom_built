@@ -29,6 +29,40 @@ class PDFPlugin:
         self.pdfs[(row,col)]=path
         if hasattr(self.spreadsheet,"image_plugin"):
             self.spreadsheet.image_plugin.images.pop((row,col),None)
+            
+    def shift_rows(self,start_row,offset):
+        updated={}
+        for (row,col),path in sorted(self.pdfs.items()):
+            if row>=start_row:
+                updated[(row+offset,col)]=path
+            else:
+                updated[(row,col)]=path
+        self.pdfs=updated
+        self.refresh_pdfs()
+    
+    def shift_columns(self,start_col,offset):
+        updated={}
+        for (row,col),path in sorted(self.pdfs.items()):
+            if col>=start_col:
+                updated[(row,col+offset)]=path
+            else:
+                updated[(row,col)]=path
+        self.pdfs=updated
+        self.refresh_pdfs()
+    
+    def refresh_pdfs(self):
+        for row in range(self.table.rowCount()):
+            for col in range(self.table.columnCount()):
+                widget=self.table.cellWidget(row,col)
+                if isinstance(widget,QLabel) and (row,col) not in getattr(self.spreadsheet.image_plugin,"images",{}):
+                    self.table.removeCellWidget(row,col)
+        for (row,col),path in self.pdfs.items():
+            if os.path.exists(path):
+                label=QLabel("📄\n"+os.path.basename(path))
+                label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.table.setCellWidget(row,col,label)
+                self.table.setRowHeight(row,80)
+                self.table.setColumnWidth(col,180)
 
     def remove_pdf(self,row,col):
         self.pdfs.pop((row,col),None)

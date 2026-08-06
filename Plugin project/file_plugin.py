@@ -46,7 +46,8 @@ class FilePlugin:
                     data["cells"].append({
                         "row":r,
                         "col":c,
-                        "text":item.text()
+                        "text":item.text(),
+                        "formula":item.data(Qt.ItemDataRole.UserRole)
                     })
         with open(file,"w") as f:
             json.dump(data,f,indent=4)
@@ -123,10 +124,15 @@ class FilePlugin:
             self.table.setColumnCount(data["cols"])
     
             for cell in data["cells"]:
+                item=QTableWidgetItem(cell["text"])
+                item.setData(
+                    Qt.ItemDataRole.UserRole,
+                    cell.get("formula")
+                )
                 self.table.setItem(
                     cell["row"],
                     cell["col"],
-                    QTableWidgetItem(cell["text"])
+                    item
                 )
     
             if hasattr(self.spreadsheet,"image_plugin"):
