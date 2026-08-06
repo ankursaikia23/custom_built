@@ -229,3 +229,37 @@ class FilePlugin:
         pixmap=self.spreadsheet.table.grab()
         pixmap.save(file_name)
         self.spreadsheet.statusbar_plugin.show_operation("Image Exported")
+        
+    def export_file(self):
+        file,_=QFileDialog.getSaveFileName(
+            self.spreadsheet,
+            "Export Spreadsheet",
+            "",
+            "CSV (*.csv);;Excel Workbook (*.xlsx);;Excel 97-2003 (*.xls);;OpenDocument Spreadsheet (*.ods);;TSV (*.tsv)"
+        )
+        if not file:
+            return
+        rows=self.table.rowCount()
+        cols=self.table.columnCount()
+        data=[]
+        for r in range(rows):
+            row=[]
+            for c in range(cols):
+                item=self.table.item(r,c)
+                row.append(item.text() if item else "")
+            data.append(row)
+        df=pd.DataFrame(data)
+        ext=os.path.splitext(file)[1].lower()
+        if ext==".csv":
+            df.to_csv(file,index=False,header=False)
+        elif ext==".tsv":
+            df.to_csv(file,sep="\t",index=False,header=False)
+        elif ext==".xlsx":
+            df.to_excel(file,index=False,header=False)
+        elif ext==".xls":
+            df.to_excel(file,index=False,header=False,engine="xlwt")
+        elif ext==".ods":
+            df.to_excel(file,index=False,header=False,engine="odf")
+        else:
+            return
+        self.spreadsheet.statusbar_plugin.show_operation("Spreadsheet Exported")

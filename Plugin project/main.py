@@ -98,6 +98,7 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.save_action.triggered.connect(self.file_plugin.save_file)
         self.toolbar_plugin.undo_action.triggered.connect(self.history_plugin.undo)
         self.toolbar_plugin.redo_action.triggered.connect(self.history_plugin.redo)
+        self.toolbar_plugin.refresh_action.triggered.connect(self.refresh_sheet)
         self.toolbar_plugin.copy_action.triggered.connect(self.clipboard_plugin.copy_selection)
         self.toolbar_plugin.cut_action.triggered.connect(self.clipboard_plugin.cut_selection)
         self.toolbar_plugin.paste_action.triggered.connect(self.clipboard_plugin.paste_selection)
@@ -129,6 +130,39 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.pdf_action.triggered.connect(self.pdf_plugin.insert_pdf)
         self.toolbar_plugin.export_pdf_action.triggered.connect(self.file_plugin.export_pdf)
         self.toolbar_plugin.export_image_action.triggered.connect(self.file_plugin.export_image)
+        self.toolbar_plugin.export_sheet_action.triggered.connect(self.file_plugin.export_file)
+        
+    def refresh_sheet(self):
+        table=self.tab_plugin.current_table()
+        if table is None:
+            return
+        self.table=table
+        self.formula_plugin.recalculate()
+        default_row=30
+        default_col=100
+        for row in range(table.rowCount()):
+            used=False
+            for col in range(table.columnCount()):
+                item=table.item(row,col)
+                if item and item.text():
+                    used=True
+                    break
+            if used:
+                table.resizeRowToContents(row)
+            else:
+                table.setRowHeight(row,default_row)
+        for col in range(table.columnCount()):
+            used=False
+            for row in range(table.rowCount()):
+                item=table.item(row,col)
+                if item and item.text():
+                    used=True
+                    break
+            if used:
+                table.resizeColumnToContents(col)
+            else:
+                table.setColumnWidth(col,default_col)
+        table.viewport().update()
         
     def change_horizontal_alignment(self,text):
         if text=="Left":

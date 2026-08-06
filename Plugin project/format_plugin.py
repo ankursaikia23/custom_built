@@ -66,9 +66,15 @@ class FormatPlugin:
             item.setFont(font)
             
     def toggle_wrap_text(self):
+        table=self.table
         rows=set()
+        cols=set()
         for item in self.selected_items():
             item.setText(item.text())
             rows.add(item.row())
+            cols.add(item.column())
         for row in rows:
-            self.table.resizeRowToContents(row)
+            table.resizeRowToContents(row)
+        for col in cols:
+            table.resizeColumnToContents(col)
+        table.viewport().update()

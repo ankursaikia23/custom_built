@@ -25,16 +25,24 @@ class GridPlugin:
         self.table.verticalHeader().setDefaultSectionSize(30)
         self.table.itemSelectionChanged.connect(self.on_selection_changed)
         self.table.setStyleSheet("""
+        QTableWidget{
+        gridline-color:#d9d9d9;
+        selection-background-color:#c2dbff;
+        selection-color:black;
+        }
         QTableWidget::item:selected{
-        background-color:#4CAF50;
-        color:white;
+        background:#c2dbff;
+        color:black;
         }
         QHeaderView::section{
-        background:#f0f0f0;
+        background:#f1f3f4;
+        border:1px solid #d9d9d9;
+        padding:2px;
         }
         QHeaderView::section:checked{
-        background:#4CAF50;
-        color:white;
+        background:#dadce0;
+        color:black;
+        font-weight:bold;
         }
         """)
 
