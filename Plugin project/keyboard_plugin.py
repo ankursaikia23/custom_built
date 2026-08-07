@@ -7,6 +7,20 @@ class KeyboardPlugin:
         self.table=spreadsheet.table
 
     def handle_key_press(self,event):
+        if event.key() in(Qt.Key.Key_Delete,Qt.Key.Key_Backspace) and event.modifiers()==Qt.KeyboardModifier.NoModifier:
+            self.table.blockSignals(True)
+            changed=[]
+            for item in self.table.selectedItems():
+                changed.append(item)
+                item.setText("")
+                item.setData(Qt.ItemDataRole.UserRole,None)
+            self.table.blockSignals(False)
+            for item in changed:
+                self.spreadsheet.cell_plugin.finish_edit(item)
+            if hasattr(self.spreadsheet,"formula_plugin"):
+                self.spreadsheet.formula_plugin.recalculate()
+            return True
+        
         if event.modifiers()==Qt.KeyboardModifier.ControlModifier:
             if event.key()==Qt.Key.Key_C:
                 if hasattr(self.spreadsheet,"clipboard_plugin"):
@@ -27,17 +41,6 @@ class KeyboardPlugin:
             elif event.key()==Qt.Key.Key_Y:
                 if hasattr(self.spreadsheet,"history_plugin"):
                     self.spreadsheet.history_plugin.redo()
-                return True
-            if event.key() in(Qt.Key.Key_Delete,Qt.Key.Key_Backspace):
-                self.table.blockSignals(True)
-                changed=[]
-                for item in self.table.selectedItems():
-                    changed.append(item)
-                    item.setText("")
-                    item.setData(Qt.ItemDataRole.UserRole,None)
-                self.table.blockSignals(False)
-                for item in changed:
-                    self.spreadsheet.cell_plugin.finish_edit(item)
                 return True
         if event.key() in(Qt.Key.Key_Return,Qt.Key.Key_Enter):
             if self.table.state()==self.table.State.EditingState:

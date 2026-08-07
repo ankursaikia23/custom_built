@@ -16,6 +16,8 @@ class CellPlugin:
             self.edit_before=item.text()
             self.edit_snapshot=self.spreadsheet.history_plugin.create_cell_snapshot(item.row(),item.column())
         self.table.editItem(item)
+        if hasattr(self.spreadsheet,"formulabar_plugin"):
+            self.spreadsheet.formulabar_plugin.selecting_formula=False
         editor=self.table.focusWidget()
         if editor and hasattr(editor,"selectAll"):
             editor.selectAll()
@@ -23,6 +25,8 @@ class CellPlugin:
     def finish_edit(self,item):
         if not item:
             return
+        if hasattr(self.spreadsheet,"formulabar_plugin"):
+            self.spreadsheet.formulabar_plugin.selecting_formula=False
         lines=max(1,item.text().count("\n")+1)
         fm=self.table.fontMetrics()
         self.table.setRowHeight(item.row(),max(30,lines*fm.lineSpacing()+10))

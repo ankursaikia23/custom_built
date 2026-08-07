@@ -39,6 +39,7 @@ class SpreadsheetWindow(QMainWindow):
         self.resize(1200,700)
         self.tab_plugin=TabPlugin(self)
         self.grid_plugin=GridPlugin()
+        self.grid_plugin.spreadsheet=self
         self.table=self.grid_plugin.widget()
         self.tab_plugin.add_tab(self.table,"Sheet1")
         self.toolbar_plugin=SidebarPlugin(self)
@@ -55,7 +56,9 @@ class SpreadsheetWindow(QMainWindow):
         self.pdf_plugin=PDFPlugin(self)
         self.date_plugin=DatePlugin(self)
         self.clipboard_plugin=ClipboardPlugin(self)
+        self.history_plugins={}
         self.history_plugin=HistoryPlugin(self)
+        self.history_plugins[self.table]=self.history_plugin
         self.file_plugin=FilePlugin(self)
         self.formula_plugin=FormulaPlugin(self)
         self.search_plugin=SearchPlugin(self)
@@ -84,6 +87,7 @@ class SpreadsheetWindow(QMainWindow):
         self.setCentralWidget(self.container)
         self.statusBar().addPermanentWidget(self.zoom_plugin.widget())
         self.table.cellChanged.connect(self.formula_plugin.apply_formula)
+        self.table.currentCellChanged.connect(self.formulabar_plugin.update_bar)
         self.tab_plugin.tabs.currentChanged.connect(self.change_active_tab)
         self.settings_plugin.restore_window_state()
         self.connect_actions()
@@ -96,9 +100,9 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.new_tab_action.triggered.connect(self.file_plugin.new_tab)
         self.toolbar_plugin.open_action.triggered.connect(self.file_plugin.open_file)
         self.toolbar_plugin.save_action.triggered.connect(self.file_plugin.save_file)
-        self.toolbar_plugin.undo_action.triggered.connect(self.history_plugin.undo)
-        self.toolbar_plugin.redo_action.triggered.connect(self.history_plugin.redo)
         self.toolbar_plugin.refresh_action.triggered.connect(self.refresh_sheet)
+        self.toolbar_plugin.undo_action.triggered.connect(lambda:self.history_plugin.undo())
+        self.toolbar_plugin.redo_action.triggered.connect(lambda:self.history_plugin.redo())
         self.toolbar_plugin.copy_action.triggered.connect(self.clipboard_plugin.copy_selection)
         self.toolbar_plugin.cut_action.triggered.connect(self.clipboard_plugin.cut_selection)
         self.toolbar_plugin.paste_action.triggered.connect(self.clipboard_plugin.paste_selection)
@@ -211,16 +215,31 @@ class SpreadsheetWindow(QMainWindow):
             self.alignment_plugin.table=table
             self.color_plugin.table=table
             self.border_plugin.table=table
+            self.image_plugin.table=table
+            self.image_plugin.images=self.image_plugin.images_map.setdefault(table,{})
+            self.image_plugin.refresh_images()
+            self.pdf_plugin.table=table
+            self.pdf_plugin.pdfs=self.pdf_plugin.pdfs_map.setdefault(table,{})
+            self.pdf_plugin.refresh_pdfs()
+            self.comment_plugin.comments=self.comment_plugin.comments_map.setdefault(table,{})
+            self.border_plugin.border_data=self.border_plugin.border_data_map.setdefault(table,{})
             self.border_plugin.delegate=BorderDelegate(self.border_plugin,table)
             table.setItemDelegate(self.border_plugin.delegate)
             self.clipboard_plugin.table=table
+            if table not in self.history_plugins:
+                self.history_plugins[table]=HistoryPlugin(self)
+            self.history_plugin=self.history_plugins[table]
             self.history_plugin.table=table
             self.file_plugin.table=table
             self.formula_plugin.window=self
+            self.formulabar_plugin.table=table
             self.keyboard_plugin.table=table
             table.cellChanged.connect(self.formula_plugin.apply_formula)
+            table.currentCellChanged.connect(self.formulabar_plugin.update_bar)
             table.itemChanged.connect(self.mark_modified)
             table.setFocus()
+            self.formulabar_plugin.popup.hide()
+            self.formulabar_plugin.selecting_formula=False
     
     def mark_modified(self):
         self.is_modified=True

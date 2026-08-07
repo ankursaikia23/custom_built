@@ -5,8 +5,8 @@ class HistoryPlugin:
     def __init__(self,spreadsheet):
         self.spreadsheet=spreadsheet
         self.table=spreadsheet.table
-        self.undo_stack=[]
-        self.redo_stack=[]
+        self.undo_stacks={}
+        self.redo_stacks={}
         
     def create_cell_snapshot(self,row,col):
         item=self.table.item(row,col)
@@ -53,18 +53,24 @@ class HistoryPlugin:
             self.spreadsheet.formula_plugin.recalculate()
         
     def push_operation(self,before,after,operation_type="cells",operation_data=None):
-        self.undo_stack.append({
+        table=self.table
+        self.undo_stacks.setdefault(table,[])
+        self.redo_stacks.setdefault(table,[])
+        self.undo_stacks[table].append({
             "before":before,
             "after":after,
             "type":operation_type,
             "data":operation_data
         })
-        self.redo_stack.clear()
+        self.redo_stacks[table].clear()
         
     def undo(self):
-        if not self.undo_stack:
+        table=self.table
+        self.undo_stacks.setdefault(table,[])
+        self.redo_stacks.setdefault(table,[])
+        if not self.undo_stacks[table]:
             return
-        operation=self.undo_stack.pop()
+        operation=self.undo_stacks[table].pop()
         self.table.blockSignals(True)
         if operation["type"]=="cells":
             for snapshot in operation["before"]:
@@ -96,12 +102,15 @@ class HistoryPlugin:
                     snapshot["col"]=col+index
                     self.apply_snapshot(snapshot)
         self.table.blockSignals(False)
-        self.redo_stack.append(operation)
+        self.redo_stacks[table].append(operation)
     
     def redo(self):
-        if not self.redo_stack:
+        table=self.table
+        self.undo_stacks.setdefault(table,[])
+        self.redo_stacks.setdefault(table,[])
+        if not self.redo_stacks[table]:
             return
-        operation=self.redo_stack.pop()
+        operation=self.redo_stacks[table].pop()
         self.table.blockSignals(True)
         if operation["type"]=="cells":
             for snapshot in operation["after"]:
@@ -127,4 +136,4 @@ class HistoryPlugin:
             for _ in range(count):
                 self.table.removeColumn(col)
         self.table.blockSignals(False)
-        self.undo_stack.append(operation)
+        self.undo_stacks[table].append(operation)

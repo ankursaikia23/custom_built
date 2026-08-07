@@ -7,17 +7,21 @@ class FormulaPlugin:
 
     def column_to_number(self,column):
         result=0
+        
         for char in column:
             result=result*26+(ord(char)-64)
         return result-1
 
     def get_cell_value(self,reference):
         match=re.fullmatch(r"([A-Z]+)(\d+)",reference.upper())
+        
         if not match:
             return 0
+        
         column,row=match.groups()
         row=int(row)-1
         column=self.column_to_number(column)
+        
         if row<0 or column<0:
             return 0
         if row>=self.window.table.rowCount():

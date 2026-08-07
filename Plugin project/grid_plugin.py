@@ -5,6 +5,7 @@ from border_delegate import BorderDelegate
 class GridPlugin:
     def __init__(self):
         self.table=QTableWidget(100,26)
+        self.spreadsheet=None
         self.setup()
 
     def setup(self):
@@ -68,6 +69,42 @@ class GridPlugin:
     def on_selection_changed(self):
         if hasattr(self,"selection_changed_callback") and callable(self.selection_changed_callback):
             self.selection_changed_callback()
+    
+        if self.spreadsheet is None:
+            return
+    
+        formula_plugin=getattr(self.spreadsheet,"formulabar_plugin",None)
+    
+        if formula_plugin is None:
+            return
+    
+        if not getattr(formula_plugin,"selecting_formula",False):
+            return
+    
+        ranges=self.table.selectedRanges()
+    
+        if not ranges:
+            return
+    
+        selection=ranges[0]
+    
+        def column_name(col):
+            text=""
+            col+=1
+            while col:
+                col,rem=divmod(col-1,26)
+                text=chr(65+rem)+text
+            return text
+    
+        start=f"{column_name(selection.leftColumn())}{selection.topRow()+1}"
+        end=f"{column_name(selection.rightColumn())}{selection.bottomRow()+1}"
+    
+        if start==end:
+            ref=start
+        else:
+            ref=f"{start}:{end}"
+    
+        formula_plugin.update_formula_reference(ref)
     
     def merge_selected_cells(self):
         ranges=self.table.selectedRanges()

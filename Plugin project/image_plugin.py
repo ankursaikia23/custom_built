@@ -8,6 +8,7 @@ class ImagePlugin:
         self.spreadsheet=spreadsheet
         self.table=spreadsheet.table
         self.images={}
+        self.images_map={self.table:self.images}
 
     def insert_image(self):
         row=self.table.currentRow()
@@ -20,6 +21,7 @@ class ImagePlugin:
         self.set_image(row,col,file)
 
     def set_image(self,row,col,path):
+        self.images=self.images_map.setdefault(self.table,{})
         self.table.takeItem(row,col)
         self.table.removeCellWidget(row,col)
         pixmap=QPixmap(path)
@@ -34,6 +36,7 @@ class ImagePlugin:
             self.spreadsheet.pdf_plugin.pdfs.pop((row,col),None)
             
     def shift_rows(self,start_row,offset):
+        self.images=self.images_map.setdefault(self.table,{})
         updated={}
         for (row,col),path in sorted(self.images.items()):
             if row>=start_row:
@@ -44,6 +47,7 @@ class ImagePlugin:
         self.refresh_images()
     
     def shift_columns(self,start_col,offset):
+        self.images=self.images_map.setdefault(self.table,{})
         updated={}
         for (row,col),path in sorted(self.images.items()):
             if col>=start_col:
@@ -54,6 +58,7 @@ class ImagePlugin:
         self.refresh_images()
     
     def refresh_images(self):
+        self.images=self.images_map.setdefault(self.table,{})
         for row in range(self.table.rowCount()):
             for col in range(self.table.columnCount()):
                 if isinstance(self.table.cellWidget(row,col),QLabel):
@@ -69,17 +74,21 @@ class ImagePlugin:
                 self.table.setColumnWidth(col,160)
 
     def remove_image(self,row,col):
+        self.images=self.images_map.setdefault(self.table,{})
         self.images.pop((row,col),None)
         if isinstance(self.table.cellWidget(row,col),QLabel):
             self.table.removeCellWidget(row,col)
 
     def has_image(self,row,col):
+        self.images=self.images_map.setdefault(self.table,{})
         return (row,col) in self.images
 
     def image_path(self,row,col):
+        self.images=self.images_map.setdefault(self.table,{})
         return self.images.get((row,col))
 
     def clear(self):
+        self.images=self.images_map.setdefault(self.table,{})
         for row,col in list(self.images.keys()):
             self.table.removeCellWidget(row,col)
         self.images.clear()

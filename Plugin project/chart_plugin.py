@@ -1,9 +1,11 @@
 from PyQt6.QtWidgets import QInputDialog
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+
 class ChartPlugin:
     def __init__(self,window):
         self.window=window
+        
     def get_data(self):
         data=[]
         for row in range(self.window.table.rowCount()):
@@ -14,6 +16,7 @@ class ChartPlugin:
                 except:
                     pass
         return data
+    
     def create_chart(self,chart_type="line"):
         data=self.get_data()
         figure=Figure()
