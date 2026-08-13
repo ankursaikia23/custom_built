@@ -14,30 +14,35 @@ class FormulaPlugin:
 
     def get_cell_value(self,reference):
         match=re.fullmatch(r"([A-Z]+)(\d+)",reference.upper())
-        
         if not match:
             return 0
-        
+    
         column,row=match.groups()
         row=int(row)-1
         column=self.column_to_number(column)
-        
+    
         if row<0 or column<0:
             return 0
         if row>=self.window.table.rowCount():
             return 0
         if column>=self.window.table.columnCount():
             return 0
+    
         item=self.window.table.item(row,column)
         if item is None:
             return 0
-        text=item.text().strip()
-        if text.startswith("="):
-            value=self.evaluate(text)
+    
+        formula=item.data(Qt.ItemDataRole.UserRole)
+    
+        if isinstance(formula,str) and formula.startswith("="):
+            value=self.evaluate(formula)
             try:
                 return float(value)
             except:
                 return 0
+    
+        text=item.text().strip()
+    
         try:
             return float(text)
         except:
@@ -211,21 +216,26 @@ class FormulaPlugin:
 
     def recalculate(self):
         table=self.window.table
-
-        table.blockSignals(True)
-
+        formulas=[]
+    
         for row in range(table.rowCount()):
             for column in range(table.columnCount()):
                 item=table.item(row,column)
-
+    
                 if item is None:
                     continue
-
+    
                 formula=item.data(Qt.ItemDataRole.UserRole)
-
+    
                 if isinstance(formula,str) and formula.startswith("="):
-                    item.setText(str(self.evaluate(formula)))
-
+                    formulas.append((item,formula))
+    
+        table.blockSignals(True)
+    
+        for item,formula in formulas:
+            result=self.evaluate(formula)
+            item.setText(str(result))
+    
         table.blockSignals(False)
         
         

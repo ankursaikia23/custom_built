@@ -20,11 +20,22 @@ class ContextMenuPlugin:
         if not self.table.selectionModel().isRowSelected(row,self.table.rootIndex()):
             self.table.selectRow(row)
         menu=QMenu(self.table)
-        insert_action=menu.addAction("Insert Row")
+        insert_menu=menu.addMenu("Insert Rows")
+        insert_action=insert_menu.addAction("Insert Rows...")
         delete_action=menu.addAction("Delete Selected Rows")
         action=menu.exec(self.table.verticalHeader().viewport().mapToGlobal(pos))
         if action==insert_action:
-            self.insert_rows(row)
+            count,ok=QInputDialog.getInt(self.table,"Insert Rows","Number of rows:",1,1,1000,1)
+            if not ok:
+                return
+            direction_menu=QMenu(self.table)
+            up_action=direction_menu.addAction("Insert Above")
+            down_action=direction_menu.addAction("Insert Below")
+            direction=direction_menu.exec(self.table.verticalHeader().viewport().mapToGlobal(pos))
+            if direction==up_action:
+                self.insert_rows(row,"up",count)
+            elif direction==down_action:
+                self.insert_rows(row,"down",count)
         elif action==delete_action:
             self.delete_selected_rows()
     
@@ -35,42 +46,49 @@ class ContextMenuPlugin:
         if not self.table.selectionModel().isColumnSelected(col,self.table.rootIndex()):
             self.table.selectColumn(col)
         menu=QMenu(self.table)
-        insert_action=menu.addAction("Insert Column")
+        insert_menu=menu.addMenu("Insert Columns")
+        insert_action=insert_menu.addAction("Insert Columns...")
         delete_action=menu.addAction("Delete Selected Columns")
         action=menu.exec(self.table.horizontalHeader().viewport().mapToGlobal(pos))
         if action==insert_action:
-            self.insert_columns(col)
+            count,ok=QInputDialog.getInt(self.table,"Insert Columns","Number of columns:",1,1,1000,1)
+            if not ok:
+                return
+            direction_menu=QMenu(self.table)
+            left_action=direction_menu.addAction("Insert Left")
+            right_action=direction_menu.addAction("Insert Right")
+            direction=direction_menu.exec(self.table.horizontalHeader().viewport().mapToGlobal(pos))
+            if direction==left_action:
+                self.insert_columns(col,"left",count)
+            elif direction==right_action:
+                self.insert_columns(col,"right",count)
         elif action==delete_action:
             self.delete_selected_columns()
             
-    def insert_rows(self,row):
-        count,ok=QInputDialog.getInt(
-            self.table,
-            "Insert Rows",
-            "Number of rows:",
-            1,
-            1,
-            1000
-        )
-        if not ok:
-            return
+    def insert_rows(self,row,direction="up",count=1):
+        selected_rows=sorted(set(index.row() for index in self.table.selectionModel().selectedRows()))
+        if not selected_rows:
+            selected_rows=[row]
+        first_row=min(selected_rows)
+        last_row=max(selected_rows)
+        insert_at=first_row if direction=="up" else last_row+1
         for _ in range(count):
-            self.table.insertRow(row)
-            if row>0:
-                self.table.setRowHeight(row,self.table.rowHeight(row-1))
+            self.table.insertRow(insert_at)
+            if insert_at>0:
+                self.table.setRowHeight(insert_at,self.table.rowHeight(insert_at-1))
             elif self.table.rowCount()>1:
-                self.table.setRowHeight(row,self.table.rowHeight(1))
+                self.table.setRowHeight(insert_at,self.table.rowHeight(insert_at+1))
         if hasattr(self.spreadsheet,"image_plugin"):
-            self.spreadsheet.image_plugin.shift_rows(row,count)
+            self.spreadsheet.image_plugin.shift_rows(insert_at,count)
         if hasattr(self.spreadsheet,"pdf_plugin"):
-            self.spreadsheet.pdf_plugin.shift_rows(row,count)
+            self.spreadsheet.pdf_plugin.shift_rows(insert_at,count)
         if hasattr(self.spreadsheet,"border_plugin"):
-            self.spreadsheet.border_plugin.shift_rows(row,count)
+            self.spreadsheet.border_plugin.shift_rows(insert_at,count)
         self.spreadsheet.history_plugin.push_operation(
             [],
             [],
             "insert_rows",
-            {"row":row,"count":count}
+            {"row":insert_at,"count":count}
         )
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()
@@ -95,34 +113,30 @@ class ContextMenuPlugin:
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()
     
-    def insert_columns(self,col):
-        count,ok=QInputDialog.getInt(
-            self.table,
-            "Insert Columns",
-            "Number of columns:",
-            1,
-            1,
-            1000
-        )
-        if not ok:
-            return
+    def insert_columns(self,col,direction="left",count=1):
+        selected_columns=sorted(set(index.column() for index in self.table.selectionModel().selectedColumns()))
+        if not selected_columns:
+            selected_columns=[col]
+        first_col=min(selected_columns)
+        last_col=max(selected_columns)
+        insert_at=first_col if direction=="left" else last_col+1
         for _ in range(count):
-            self.table.insertColumn(col)
-            if col>0:
-                self.table.setColumnWidth(col,self.table.columnWidth(col-1))
+            self.table.insertColumn(insert_at)
+            if insert_at>0:
+                self.table.setColumnWidth(insert_at,self.table.columnWidth(insert_at-1))
             elif self.table.columnCount()>1:
-                self.table.setColumnWidth(col,self.table.columnWidth(1))
+                self.table.setColumnWidth(insert_at,self.table.columnWidth(insert_at+1))
         if hasattr(self.spreadsheet,"image_plugin"):
-            self.spreadsheet.image_plugin.shift_columns(col,count)
+            self.spreadsheet.image_plugin.shift_columns(insert_at,count)
         if hasattr(self.spreadsheet,"pdf_plugin"):
-            self.spreadsheet.pdf_plugin.shift_columns(col,count)
+            self.spreadsheet.pdf_plugin.shift_columns(insert_at,count)
         if hasattr(self.spreadsheet,"border_plugin"):
-            self.spreadsheet.border_plugin.shift_columns(col,count)
+            self.spreadsheet.border_plugin.shift_columns(insert_at,count)
         self.spreadsheet.history_plugin.push_operation(
             [],
             [],
             "insert_columns",
-            {"col":col,"count":count}
+            {"col":insert_at,"count":count}
         )
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()

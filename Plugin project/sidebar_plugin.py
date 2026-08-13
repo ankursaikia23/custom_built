@@ -2,7 +2,8 @@ import os
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QAction, QIcon, QFontMetrics
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QPushButton, QFrame, QHBoxLayout, QComboBox, QMenu, QScrollArea    
+    QWidget, QVBoxLayout, QPushButton, QFrame, QHBoxLayout, QComboBox, QMenu, QScrollArea,
+    QInputDialog
 )
 
 class SidebarPlugin(QFrame):
@@ -19,7 +20,7 @@ class SidebarPlugin(QFrame):
         background:#f5f5f5;
         border-right:1px solid #d0d0d0;
         }
-        QPushButton{
+        QPushButton,QToolButton{
         text-align:left;
         padding-left:12px;
         height:38px;
@@ -27,15 +28,25 @@ class SidebarPlugin(QFrame):
         background:transparent;
         font-size:11pt;
         }
-        QPushButton:hover{
+        QPushButton:hover,QToolButton:hover{
         background:#e8e8e8;
         }
-        QPushButton:pressed{
+        QPushButton:pressed,QToolButton:pressed{
         background:#dcdcdc;
+        }
+        QMenu{
+        background:#f5f5f5;
+        border:1px solid #d0d0d0;
+        }
+        QMenu::item{
+        padding:8px 28px 8px 12px;
+        }
+        QMenu::item:selected{
+        background:#e8e8e8;
         }
         """)
         self.main_layout=QVBoxLayout(self)
-        self.main_layout.setContentsMargins(0,0,0,0)        
+        self.main_layout.setContentsMargins(0,0,0,0)
         self.scroll_area=QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -54,16 +65,17 @@ class SidebarPlugin(QFrame):
         self.header.addWidget(self.toggle_button)
         self.header.addStretch()
         self.buttons=[]
-        self.new_action=QAction("New File",spreadsheet)
-        self.open_action=QAction("Open File",spreadsheet)
-        self.save_action=QAction("Save File",spreadsheet)
-        self.new_tab_action=QAction("New Tab",spreadsheet)
-        self.export_pdf_action=QAction("Export PDF",spreadsheet)
-        self.export_image_action=QAction("Export Image",spreadsheet)
-        self.export_sheet_action=QAction("Export Spreadsheet",spreadsheet)
+        self.new_action=QAction(self.get_icon("New File"),"New File",spreadsheet)
+        self.open_action=QAction(self.get_icon("Open File"),"Open File",spreadsheet)
+        self.save_action=QAction(self.get_icon("Save File"),"Save File",spreadsheet)
+        self.new_tab_action=QAction(self.get_icon("New Tab"),"New Tab",spreadsheet)
+        self.export_pdf_action=QAction(self.get_icon("Export PDF"),"Export PDF",spreadsheet)
+        self.export_image_action=QAction(self.get_icon("Export Image"),"Export Image",spreadsheet)
+        self.export_sheet_action=QAction(self.get_icon("Export Spreadsheet"),"Export Spreadsheet",spreadsheet)
         self.undo_action=QAction("Undo",spreadsheet)
         self.redo_action=QAction("Redo",spreadsheet)
         self.refresh_action=QAction(QIcon("icons/Refresh.png"),"Refresh",self)
+        self.scale_action=QAction("Scale Up / Down",spreadsheet)
         self.copy_action=QAction("Copy",spreadsheet)
         self.cut_action=QAction("Cut",spreadsheet)
         self.paste_action=QAction("Paste",spreadsheet)
@@ -80,20 +92,41 @@ class SidebarPlugin(QFrame):
         self.merge_action=QAction("Merge / Unmerge Cells",spreadsheet)
         self.font_color_action=QAction("Font Color",spreadsheet)
         self.fill_color_action=QAction("Fill Color",spreadsheet)
-        self.image_action=QAction("Insert Image",spreadsheet)
-        self.pdf_action=QAction("Insert PDF",spreadsheet)
-        self.date_action=QAction("Insert Date",spreadsheet)
-        self.add_button("New File","New File",self.new_action)
-        self.add_button("Open File","Open File",self.open_action)
-        self.add_button("Save File","Save File",self.save_action)
-        self.add_button("New Tab","New Tab",self.new_tab_action)
-        self.add_separator()        
-        self.add_button("Export PDF","Export PDF",self.export_pdf_action)
-        self.add_button("Export Image","Export Image",self.export_image_action)
-        self.add_button("Export Spreadsheet","Export Spreadsheet",self.export_sheet_action)
-        self.add_separator()
+        self.image_action=QAction(self.get_icon("Insert Image"),"Insert Image",spreadsheet)
+        self.pdf_action=QAction(self.get_icon("Insert PDF"),"Insert PDF",spreadsheet)
+        self.date_action=QAction(self.get_icon("Insert Date"),"Insert Date",spreadsheet)
+        self.file_operations_button=self.add_master_button("File Operations","File Operations")
+        self.file_operations_menu=QMenu(self)
+        self.file_operations_button.clicked.connect(
+            lambda:self.file_operations_menu.exec(
+                self.file_operations_button.mapToGlobal(
+                    self.file_operations_button.rect().bottomLeft()
+                    )
+                )
+            )
+        self.file_operations_menu.addAction(self.new_action)
+        self.file_operations_menu.addAction(self.open_action)
+        self.file_operations_menu.addAction(self.save_action)
+        self.file_operations_menu.addAction(self.new_tab_action)
+        self.file_operations_menu.addSeparator()
+        self.file_operations_menu.addAction(self.export_pdf_action)
+        self.file_operations_menu.addAction(self.export_image_action)
+        self.file_operations_menu.addAction(self.export_sheet_action)
+        self.insert_operations_button=self.add_master_button("Insert Operations","Insert Operations")
+        self.insert_operations_menu=QMenu(self)
+        self.insert_operations_button.clicked.connect(
+            lambda:self.insert_operations_menu.exec(
+                self.insert_operations_button.mapToGlobal(
+                    self.insert_operations_button.rect().bottomLeft()
+                    )
+                )
+            )
+        self.insert_operations_menu.addAction(self.image_action)
+        self.insert_operations_menu.addAction(self.pdf_action)
+        self.insert_operations_menu.addAction(self.date_action)
         self.add_button("Undo","Undo",self.undo_action)
         self.add_button("Redo","Redo",self.redo_action)
+        self.add_button("Scale Up / Down","Scale Up Down",self.scale_action)
         self.add_button("Refresh","Refresh",self.refresh_action)
         self.add_separator()
         self.add_button("Copy","Copy",self.copy_action)
@@ -110,17 +143,9 @@ class SidebarPlugin(QFrame):
         self.add_button("Font Color","Font Color",self.font_color_action)
         self.add_button("Fill Color","Fill Color",self.fill_color_action)
         self.horizontal_alignment=QComboBox()
-        self.horizontal_alignment.addItems([
-            "Left",
-            "Center",
-            "Right"
-        ])        
+        self.horizontal_alignment.addItems(["Left","Center","Right"])
         self.vertical_alignment=QComboBox()
-        self.vertical_alignment.addItems([
-            "Top",
-            "Middle",
-            "Bottom"
-        ])
+        self.vertical_alignment.addItems(["Top","Middle","Bottom"])
         self.layout.addWidget(self.horizontal_alignment)
         self.layout.addWidget(self.vertical_alignment)
         self.border_button=QPushButton("Borders")
@@ -130,6 +155,7 @@ class SidebarPlugin(QFrame):
         self.border_button.setFixedHeight(24)
         self.border_menu=QMenu(self)
         self.border_button.setMenu(self.border_menu)
+        self.border_button.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.border_button.setStyleSheet("text-align:left;padding-left:12px;")
         self.all_border_action=self.border_menu.addAction("All Borders")
         self.outer_border_action=self.border_menu.addAction("Outer Borders")
@@ -147,6 +173,7 @@ class SidebarPlugin(QFrame):
         self.formula_button.setFixedHeight(24)
         self.formula_menu=QMenu(self)
         self.formula_button.setMenu(self.formula_menu)
+        self.formula_button.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.formula_button.setStyleSheet("text-align:left;padding-left:12px;")
         self.sum_action=self.formula_menu.addAction("SUM")
         self.average_action=self.formula_menu.addAction("AVERAGE")
@@ -154,30 +181,18 @@ class SidebarPlugin(QFrame):
         self.min_action=self.formula_menu.addAction("MIN")
         self.max_action=self.formula_menu.addAction("MAX")
         self.layout.addWidget(self.formula_button)
-        self.add_separator()
-        self.add_button("Insert Image","Insert Image",self.image_action)
-        self.add_button("Insert PDF","Insert PDF",self.pdf_action)
-        self.add_button("Insert Date","Insert Date",self.date_action)
         self.layout.addStretch()
-        
+
     def get_icon(self,name):
-        icon_path=os.path.join(
-            os.path.dirname(__file__),
-            "icons",
-            name+".png"
-        )
+        icon_path=os.path.join(os.path.dirname(__file__),"icons",name+".png")
         if os.path.exists(icon_path):
             return QIcon(icon_path)
         return QIcon()
-    
+
     def calculate_sidebar_width(self):
         texts=[
-            "New File",
-            "Open File",
-            "Save File",
-            "New Tab",
-            "Export PDF",
-            "Export Image",
+            "File Operations",
+            "Insert Operations",
             "Undo",
             "Redo",
             "Copy",
@@ -192,14 +207,23 @@ class SidebarPlugin(QFrame):
             "Font Color",
             "Fill Color",
             "Borders",
-            "Insert Image",
-            "Insert PDF",
-            "Insert Date",
             "Formulas"
-        ]    
+        ]
         metrics=QFontMetrics(self.font())
         longest=max(metrics.horizontalAdvance(text) for text in texts)
         return longest+70
+
+    def add_master_button(self,text,icon_name):
+        button=QPushButton()
+        button.setText(text+"  ▾")
+        button.setIcon(self.get_icon(icon_name))
+        button.setIconSize(QSize(12,12))
+        button.setFixedHeight(24)
+        button.setProperty("full_text",text)
+        button.setStyleSheet("text-align:left;padding-left:12px;padding-right:12px;")
+        self.layout.addWidget(button)
+        self.buttons.append(button)
+        return button
 
     def add_button(self,text,icon_name,action):
         button=QPushButton(text)
@@ -220,21 +244,15 @@ class SidebarPlugin(QFrame):
 
     def toggle_sidebar(self):
         self.expanded=not self.expanded
-    
         if self.expanded:
             self.setFixedWidth(self.sidebar_width)
-    
             for button in self.buttons:
                 button.setText(button.property("full_text"))
-    
             self.border_button.setText("Borders")
             self.formula_button.setText("Formulas")
-    
         else:
             self.setFixedWidth(60)
-    
             for button in self.buttons:
                 button.setText("")
-    
             self.border_button.setText("")
             self.formula_button.setText("")

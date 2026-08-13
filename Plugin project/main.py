@@ -1,7 +1,8 @@
 import sys
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox    
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QSplitter
 )
+from PyQt6.QtCore import Qt
 from grid_plugin import GridPlugin
 from cell_plugin import CellPlugin
 from sidebar_plugin import SidebarPlugin
@@ -27,9 +28,9 @@ from chart_plugin import ChartPlugin
 from validation_plugin import ValidationPlugin
 from comment_plugin import CommentPlugin
 from theme_plugin import ThemePlugin
-from autosave_plugin import AutoSavePlugin
 from settings_plugin import SettingsPlugin
 from tab_plugin import TabPlugin
+from viewer_plugin import ViewerPlugin
 
 class SpreadsheetWindow(QMainWindow):
     def __init__(self):
@@ -68,8 +69,8 @@ class SpreadsheetWindow(QMainWindow):
         self.validation_plugin=ValidationPlugin(self)
         self.comment_plugin=CommentPlugin(self)
         self.theme_plugin=ThemePlugin(self)
-        self.autosave_plugin=AutoSavePlugin(self)
         self.settings_plugin=SettingsPlugin(self)
+        self.viewer_plugin=ViewerPlugin(self)
         self.container=QWidget()
         self.main_layout=QHBoxLayout(self.container)
         self.main_layout.setContentsMargins(0,0,0,0)
@@ -81,13 +82,21 @@ class SpreadsheetWindow(QMainWindow):
         self.right_layout.setSpacing(0)
         self.right_layout.addWidget(self.formulabar_plugin.widget())
         self.right_layout.addWidget(self.tab_plugin.widget())
-        self.main_layout.addWidget(self.right_panel)
+        self.viewer_splitter=QSplitter(Qt.Orientation.Horizontal)
+        self.viewer_splitter.setChildrenCollapsible(False)
+        self.viewer_splitter.addWidget(self.right_panel)
+        self.viewer_splitter.addWidget(self.viewer_plugin)
+        self.viewer_splitter.setSizes([600,600])
+        self.main_layout.addWidget(self.viewer_splitter)
         self.main_layout.setStretch(0,0)
         self.main_layout.setStretch(1,1)
         self.setCentralWidget(self.container)
         self.statusBar().addPermanentWidget(self.zoom_plugin.widget())
         self.table.cellChanged.connect(self.formula_plugin.apply_formula)
         self.table.currentCellChanged.connect(self.formulabar_plugin.update_bar)
+        self.table.currentCellChanged.connect(
+            lambda row,col,prev_row,prev_col:self.viewer_plugin.show_cell(row,col)
+            )
         self.tab_plugin.tabs.currentChanged.connect(self.change_active_tab)
         self.settings_plugin.restore_window_state()
         self.connect_actions()
@@ -100,6 +109,7 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.new_tab_action.triggered.connect(self.file_plugin.new_tab)
         self.toolbar_plugin.open_action.triggered.connect(self.file_plugin.open_file)
         self.toolbar_plugin.save_action.triggered.connect(self.file_plugin.save_file)
+        self.toolbar_plugin.scale_action.triggered.connect(self.file_plugin.set_export_scale)
         self.toolbar_plugin.refresh_action.triggered.connect(self.refresh_sheet)
         self.toolbar_plugin.undo_action.triggered.connect(lambda:self.history_plugin.undo())
         self.toolbar_plugin.redo_action.triggered.connect(lambda:self.history_plugin.redo())
@@ -210,6 +220,7 @@ class SpreadsheetWindow(QMainWindow):
                 pass
             self.table=table
             self.grid_plugin.table=table
+            self.grid_plugin.spreadsheet=self
             self.cell_plugin.table=table
             self.format_plugin.table=table
             self.alignment_plugin.table=table
@@ -237,6 +248,7 @@ class SpreadsheetWindow(QMainWindow):
             table.cellChanged.connect(self.formula_plugin.apply_formula)
             table.currentCellChanged.connect(self.formulabar_plugin.update_bar)
             table.itemChanged.connect(self.mark_modified)
+            self.formulabar_plugin.table=table
             table.setFocus()
             self.formulabar_plugin.popup.hide()
             self.formulabar_plugin.selecting_formula=False
