@@ -31,9 +31,14 @@ class CellPlugin:
         fm=self.table.fontMetrics()
         self.table.setRowHeight(item.row(),max(30,lines*fm.lineSpacing()+10))
         if item.text()==self.edit_before:
+            self.edit_before=""
+            self.edit_snapshot=None
             return
         after=self.spreadsheet.history_plugin.create_cell_snapshot(item.row(),item.column())
-        self.spreadsheet.history_plugin.push_operation([self.edit_snapshot],[after])
+        if self.edit_snapshot is not None:
+            self.spreadsheet.history_plugin.push_operation([self.edit_snapshot],[after])
+        self.edit_before=""
+        self.edit_snapshot=None
         if hasattr(self.spreadsheet,"formula_plugin"):
             self.spreadsheet.formula_plugin.recalculate()
 
@@ -56,3 +61,6 @@ class CellPlugin:
     def clear_cell(self,row,col):
         self.table.takeItem(row,col)
         self.table.removeCellWidget(row,col)
+        self.spreadsheet.is_modified=True
+        if hasattr(self.spreadsheet,"formula_plugin"):
+            self.spreadsheet.formula_plugin.recalculate()

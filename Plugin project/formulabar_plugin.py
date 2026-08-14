@@ -139,7 +139,6 @@ class FormulaBarPlugin:
             return
     
         text="="+item.text()+"("
-    
         self.updating=True
         self.formula_mode=True
         self.selecting_formula=False
@@ -153,12 +152,14 @@ class FormulaBarPlugin:
         self.updating=False
         self.hide_popup()
         self.table.setFocus()
+        self.type_area.moveCursor(QTextCursor.MoveOperation.End)
         
     def update_bar(self,currentRow,currentColumn,previousRow,previousColumn):
         if self.updating or self.selecting_formula:
             return
     
         self.table=self.spreadsheet.table
+        self.hide_popup()
         self.updating=True
     
         item=self.table.item(currentRow,currentColumn)
@@ -177,6 +178,7 @@ class FormulaBarPlugin:
             self.formula_mode=False
     
         self.updating=False
+        self.selecting_formula=False
     
     def commit_to_cell(self):
         self.table=self.spreadsheet.table
@@ -202,6 +204,7 @@ class FormulaBarPlugin:
             item.setData(Qt.ItemDataRole.UserRole,None)
     
         self.table.blockSignals(False)
+        self.spreadsheet.is_modified=True
     
         if not text.startswith("="):
             return

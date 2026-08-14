@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QColorDialog
+from PyQt6.QtWidgets import QColorDialog,QTableWidgetItem
 from PyQt6.QtGui import QColor
 
 class ColorPlugin:
@@ -7,50 +7,47 @@ class ColorPlugin:
         self.table=spreadsheet.table
 
     def selected_items(self):
-        return self.table.selectedItems()
+        items=[]
+        for index in self.table.selectedIndexes():
+            item=self.table.item(index.row(),index.column())
+            if item is None:
+                item=QTableWidgetItem("")
+                self.table.setItem(index.row(),index.column(),item)
+            items.append(item)
+        return items
+
+    def _apply_color(self,attribute,color):
+        if not isinstance(color,QColor):
+            color=QColorDialog.getColor(parent=self.spreadsheet)
+        if not color.isValid():
+            return
+        before=[]
+        after=[]
+        for index in self.table.selectedIndexes():
+            row=index.row()
+            col=index.column()
+            item=self.table.item(row,col)
+            if item is None:
+                item=QTableWidgetItem("")
+                self.table.setItem(row,col,item)
+            before.append(self.spreadsheet.history_plugin.create_cell_snapshot(row,col))
+            if attribute=="font":
+                item.setForeground(color)
+            else:
+                item.setBackground(color)
+            after.append(self.spreadsheet.history_plugin.create_cell_snapshot(row,col))
+        if before:
+            self.spreadsheet.history_plugin.push_operation(before,after)
+            self.spreadsheet.is_modified=True
 
     def set_font_color(self,color=None):
-        if not isinstance(color,QColor):
-            color=QColorDialog.getColor(parent=self.spreadsheet)
-
-        if not color.isValid():
-            return
-
-        indexes=self.table.selectedIndexes()
-
-        for index in indexes:
-            item=self.table.item(index.row(),index.column())
-
-            if item is None:
-                from PyQt6.QtWidgets import QTableWidgetItem
-                item=QTableWidgetItem("")
-                self.table.setItem(index.row(),index.column(),item)
-
-            item.setForeground(color)
+        self._apply_color("font",color)
 
     def set_background_color(self,color=None):
-        if not isinstance(color,QColor):
-            color=QColorDialog.getColor(parent=self.spreadsheet)
-
-        if not color.isValid():
-            return
-
-        indexes=self.table.selectedIndexes()
-
-        for index in indexes:
-            item=self.table.item(index.row(),index.column())
-
-            if item is None:
-                from PyQt6.QtWidgets import QTableWidgetItem
-                item=QTableWidgetItem("")
-                self.table.setItem(index.row(),index.column(),item)
-
-            item.setBackground(color)
+        self._apply_color("background",color)
 
     def clear_font_color(self):
-        for item in self.selected_items():
-            item.setForeground(QColor("black"))
+        self._apply_color("font",QColor("black"))
 
     def clear_background_color(self):
-        for item in self.selected_items():
-            item.setBackground(QColor("white"))
+        self._apply_color("background",QColor("white"))

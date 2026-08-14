@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import QTableWidget,QAbstractItemView,QHeaderView,QTableWidgetItem
 from PyQt6.QtCore import Qt,QDate,QPoint
 from PyQt6.QtGui import QMouseEvent
-from border_delegate import BorderDelegate
 from datetime import datetime,timedelta
 import re
 
@@ -162,7 +161,6 @@ class GridPlugin:
         self.table.setUpdatesEnabled(True)
         self.table.setCornerButtonEnabled(False)
         self.table.setShowGrid(True)
-        self.table.setItemDelegate(BorderDelegate())
         self.table.horizontalHeader().setSectionsClickable(True)
         self.table.verticalHeader().setSectionsClickable(True)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)

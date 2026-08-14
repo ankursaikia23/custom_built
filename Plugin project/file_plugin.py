@@ -23,6 +23,14 @@ class FilePlugin:
             for c in range(self.table.columnCount()):
                 before.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))
         self.table.clearContents()
+        self.table.clearSpans()
+        if hasattr(self.spreadsheet,"border_plugin"):
+            self.spreadsheet.border_plugin.border_data={}
+            self.spreadsheet.border_plugin.border_data_map[self.table]={}
+        if hasattr(self.spreadsheet,"image_plugin"):
+            self.spreadsheet.image_plugin.clear()
+        if hasattr(self.spreadsheet,"pdf_plugin"):
+            self.spreadsheet.pdf_plugin.clear()
         self.table.setRowCount(100)
         self.table.setColumnCount(26)
         after=[]
@@ -31,12 +39,6 @@ class FilePlugin:
             for c in range(self.table.columnCount()):
                 after.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))
         self.spreadsheet.history_plugin.push_operation(before,after)
-    
-        if hasattr(self.spreadsheet,"image_plugin"):
-            self.spreadsheet.image_plugin.clear()
-        if hasattr(self.spreadsheet,"pdf_plugin"):
-            self.spreadsheet.pdf_plugin.clear()
-    
         if hasattr(self.spreadsheet,"is_modified"):
             self.spreadsheet.is_modified=False
             
@@ -79,6 +81,7 @@ class FilePlugin:
             "hidden_rows":[],
             "hidden_columns":[],
             "cell_formats":{},
+            "borders":{},
             "word_wrap":table.wordWrap()
         }
         for (row,col),path in getattr(self.spreadsheet.image_plugin,"images",{}).items():
@@ -153,6 +156,8 @@ class FilePlugin:
                         "row_span":row_span,
                         "col_span":col_span
                     })
+        for (row,col),border in getattr(self.spreadsheet.border_plugin,"border_data",{}).items():
+            data["borders"][f"{row},{col}"]=dict(border)
         return data
     
     def apply_spreadsheet_metadata(self,metadata):
@@ -228,6 +233,23 @@ class FilePlugin:
                 item.setData(Qt.ItemDataRole.UserRole,format_data.get("user_role"))
             if "user_role_1" in format_data:
                 item.setData(Qt.ItemDataRole.UserRole+1,format_data.get("user_role_1"))
+        if hasattr(self.spreadsheet,"border_plugin"):
+            border_data={}
+            for key,border in metadata.get("borders",{}).items():
+                try:
+                    row,col=map(int,key.split(","))
+                except (ValueError,AttributeError):
+                    continue
+                if 0<=row<table.rowCount() and 0<=col<table.columnCount():
+                    border_data[(row,col)]={
+                        "top":bool(border.get("top",False)),
+                        "bottom":bool(border.get("bottom",False)),
+                        "left":bool(border.get("left",False)),
+                        "right":bool(border.get("right",False))
+                    }
+            self.spreadsheet.border_plugin.border_data=border_data
+            self.spreadsheet.border_plugin.border_data_map[table]=border_data
+            self.spreadsheet.border_plugin.refresh()
         for merged in metadata.get("merged_cells",[]):
             row=int(merged.get("row",-1))
             col=int(merged.get("col",-1))
@@ -315,6 +337,9 @@ class FilePlugin:
         try:
             table.clearContents()
             table.clearSpans()
+            if hasattr(self.spreadsheet,"border_plugin"):
+                self.spreadsheet.border_plugin.border_data={}
+                self.spreadsheet.border_plugin.border_data_map[table]={}
             rows=len(df.index)
             cols=len(df.columns)
             table.setRowCount(max(rows,100))

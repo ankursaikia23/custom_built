@@ -26,5 +26,6 @@ class DatePlugin:
             item=QTableWidgetItem()
             self.table.setItem(row,col,item)
         item.setText(date_text)
+        self.spreadsheet.is_modified=True
         if dialog:
             dialog.accept()

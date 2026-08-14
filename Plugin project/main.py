@@ -26,7 +26,6 @@ from zoom_plugin import ZoomPlugin
 from sort_filter_plugin import SortFilterPlugin
 from chart_plugin import ChartPlugin
 from validation_plugin import ValidationPlugin
-from comment_plugin import CommentPlugin
 from theme_plugin import ThemePlugin
 from settings_plugin import SettingsPlugin
 from tab_plugin import TabPlugin
@@ -67,7 +66,6 @@ class SpreadsheetWindow(QMainWindow):
         self.sort_filter_plugin=SortFilterPlugin(self)
         self.chart_plugin=ChartPlugin(self)
         self.validation_plugin=ValidationPlugin(self)
-        self.comment_plugin=CommentPlugin(self)
         self.theme_plugin=ThemePlugin(self)
         self.settings_plugin=SettingsPlugin(self)
         self.viewer_plugin=ViewerPlugin(self)
@@ -232,7 +230,6 @@ class SpreadsheetWindow(QMainWindow):
             self.pdf_plugin.table=table
             self.pdf_plugin.pdfs=self.pdf_plugin.pdfs_map.setdefault(table,{})
             self.pdf_plugin.refresh_pdfs()
-            self.comment_plugin.comments=self.comment_plugin.comments_map.setdefault(table,{})
             self.border_plugin.border_data=self.border_plugin.border_data_map.setdefault(table,{})
             self.border_plugin.delegate=BorderDelegate(self.border_plugin,table)
             table.setItemDelegate(self.border_plugin.delegate)

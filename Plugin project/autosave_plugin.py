@@ -6,7 +6,12 @@ class AutoSavePlugin:
         self.timer=QTimer()
         self.timer.timeout.connect(self.autosave)
         self.timer.start(300000)
-        
+
     def autosave(self):
-        if hasattr(self.window,"file_plugin") and self.window.file_plugin.current_file:
-            self.window.file_plugin.save_file(auto=True)
+        if not hasattr(self.window,"file_plugin"):
+            return
+        if not self.window.file_plugin.current_file:
+            return
+        if not getattr(self.window,"is_modified",False):
+            return
+        self.window.file_plugin.autosave_file()

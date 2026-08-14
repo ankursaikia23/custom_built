@@ -90,6 +90,7 @@ class ContextMenuPlugin:
             "insert_rows",
             {"row":insert_at,"count":count}
         )
+        self.spreadsheet.is_modified=True
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()
     
@@ -100,16 +101,33 @@ class ContextMenuPlugin:
         deleted=[]
         for row in sorted(rows):
             deleted.append(self.spreadsheet.history_plugin.create_row_snapshot(row))
+        if hasattr(self.spreadsheet,"image_plugin"):
+            images=self.spreadsheet.image_plugin.images
+            updated={}
+            deleted_set=set(rows)
+            for (r,c),path in images.items():
+                if r in deleted_set:
+                    continue
+                shift=sum(1 for deleted_row in rows if deleted_row<r)
+                updated[(r-shift,c)]=path
+            self.spreadsheet.image_plugin.images=updated
+            self.spreadsheet.image_plugin.images_map[self.table]=updated
         for row in rows:
             self.table.removeRow(row)
+        if hasattr(self.spreadsheet,"image_plugin"):
+            self.spreadsheet.image_plugin.refresh_images()
+        if hasattr(self.spreadsheet,"pdf_plugin"):
+            self.spreadsheet.pdf_plugin.refresh_pdfs()
         if hasattr(self.spreadsheet,"border_plugin"):
-            self.spreadsheet.border_plugin.remove_rows(min(rows),len(rows))
+            for row in rows:
+                self.spreadsheet.border_plugin.remove_rows(row,1)
         self.spreadsheet.history_plugin.push_operation(
             [],
             [],
             "delete_rows",
             {"row":min(rows),"count":len(rows),"snapshots":deleted}
         )
+        self.spreadsheet.is_modified=True
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()
     
@@ -138,6 +156,7 @@ class ContextMenuPlugin:
             "insert_columns",
             {"col":insert_at,"count":count}
         )
+        self.spreadsheet.is_modified=True
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()
     
@@ -148,16 +167,44 @@ class ContextMenuPlugin:
         deleted=[]
         for col in sorted(cols):
             deleted.append(self.spreadsheet.history_plugin.create_column_snapshot(col))
+        if hasattr(self.spreadsheet,"image_plugin"):
+            images=self.spreadsheet.image_plugin.images
+            updated={}
+            deleted_set=set(cols)
+            for (r,c),path in images.items():
+                if c in deleted_set:
+                    continue
+                shift=sum(1 for deleted_col in cols if deleted_col<c)
+                updated[(r,c-shift)]=path
+            self.spreadsheet.image_plugin.images=updated
+            self.spreadsheet.image_plugin.images_map[self.table]=updated
+        if hasattr(self.spreadsheet,"pdf_plugin"):
+            pdfs=self.spreadsheet.pdf_plugin.pdfs
+            updated={}
+            deleted_set=set(cols)
+            for (r,c),path in pdfs.items():
+                if c in deleted_set:
+                    continue
+                shift=sum(1 for deleted_col in cols if deleted_col<c)
+                updated[(r,c-shift)]=path
+            self.spreadsheet.pdf_plugin.pdfs=updated
+            self.spreadsheet.pdf_plugin.pdfs_map[self.table]=updated
         for col in cols:
             self.table.removeColumn(col)
+        if hasattr(self.spreadsheet,"image_plugin"):
+            self.spreadsheet.image_plugin.refresh_images()
+        if hasattr(self.spreadsheet,"pdf_plugin"):
+            self.spreadsheet.pdf_plugin.refresh_pdfs()
         if hasattr(self.spreadsheet,"border_plugin"):
-            self.spreadsheet.border_plugin.remove_columns(min(cols),len(cols))
+            for col in cols:
+                self.spreadsheet.border_plugin.remove_columns(col,1)
         self.spreadsheet.history_plugin.push_operation(
             [],
             [],
             "delete_columns",
             {"col":min(cols),"count":len(cols),"snapshots":deleted}
         )
+        self.spreadsheet.is_modified=True
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()
 

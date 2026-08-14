@@ -10,46 +10,22 @@ class BorderDelegate(QStyledItemDelegate):
     def paint(self,painter,option,index):
         super().paint(painter,option,index)
         key=(index.row(),index.column())
-        
         if key not in self.border_plugin.border_data:
             return
-
         border=self.border_plugin.border_data[key]
         painter.save()
         pen=QPen(Qt.GlobalColor.black)
         pen.setWidth(1)
         painter.setPen(pen)
         rect=option.rect
-
         if border["top"]:
-            painter.drawLine(
-                rect.left(),
-                rect.top()+1,
-                rect.right(),
-                rect.top()+1
-            )
+            painter.drawLine(rect.left(),rect.top()+1,rect.right(),rect.top()+1)
         if border["bottom"]:
-            painter.drawLine(
-                rect.left(),
-                rect.bottom()-1,
-                rect.right(),
-                rect.bottom()-1
-            )
+            painter.drawLine(rect.left(),rect.bottom()-1,rect.right(),rect.bottom()-1)
         if border["left"]:
-            painter.drawLine(
-                rect.left()+1,
-                rect.top(),
-                rect.left()+1,
-                rect.bottom()
-            )
+            painter.drawLine(rect.left()+1,rect.top(),rect.left()+1,rect.bottom())
         if border["right"]:
-            painter.drawLine(
-                rect.right()-1,
-                rect.top(),
-                rect.right()-1,
-                rect.bottom()
-            )
-
+            painter.drawLine(rect.right()-1,rect.top(),rect.right()-1,rect.bottom())
         painter.restore()
 
 class BorderPlugin:
@@ -60,12 +36,12 @@ class BorderPlugin:
         self.border_data_map={self.table:self.border_data}
         self.delegate=BorderDelegate(self,self.table)
         self.table.setItemDelegate(self.delegate)
-        
+
     def refresh(self):
-        self.border_data=self.border_data_map.setdefault(self.table,{})
+        self.border_data=self.border_data_map.setdefault(self.table,self.border_data)
         self.table.viewport().update()
         self.table.viewport().repaint()
-        
+
     def shift_rows(self,start_row,offset):
         self.border_data=self.border_data_map.setdefault(self.table,{})
         updated={}
@@ -75,8 +51,9 @@ class BorderPlugin:
             else:
                 updated[(row,col)]=border.copy()
         self.border_data=updated
+        self.border_data_map[self.table]=updated
         self.refresh()
-    
+
     def shift_columns(self,start_col,offset):
         self.border_data=self.border_data_map.setdefault(self.table,{})
         updated={}
@@ -86,8 +63,9 @@ class BorderPlugin:
             else:
                 updated[(row,col)]=border.copy()
         self.border_data=updated
+        self.border_data_map[self.table]=updated
         self.refresh()
-    
+
     def remove_rows(self,start_row,count):
         self.border_data=self.border_data_map.setdefault(self.table,{})
         updated={}
@@ -97,8 +75,9 @@ class BorderPlugin:
             elif row>=start_row+count:
                 updated[(row-count,col)]=border.copy()
         self.border_data=updated
+        self.border_data_map[self.table]=updated
         self.refresh()
-    
+
     def remove_columns(self,start_col,count):
         self.border_data=self.border_data_map.setdefault(self.table,{})
         updated={}
@@ -108,66 +87,64 @@ class BorderPlugin:
             elif col>=start_col+count:
                 updated[(row,col-count)]=border.copy()
         self.border_data=updated
+        self.border_data_map[self.table]=updated
         self.refresh()
-        
+
     def apply_border(self,border_type):
         self.border_data=self.border_data_map.setdefault(self.table,{})
         ranges=self.table.selectedRanges()
-    
         if not ranges:
             return
-    
-        selection=ranges[0]
-        top=selection.topRow()
-        bottom=selection.bottomRow()
-        left=selection.leftColumn()
-        right=selection.rightColumn()
-    
-        for row in range(top,bottom+1):
-            for col in range(left,right+1):
-                key=(row,col)
-                border=self.border_data.setdefault(
-                    key,
-                    {
-                        "top":False,
-                        "bottom":False,
-                        "left":False,
-                        "right":False
-                    }
-                )
-                if border_type=="none":
-                    border["top"]=False
-                    border["bottom"]=False
-                    border["left"]=False
-                    border["right"]=False
-                elif border_type=="all":
-                    border["top"]=True
-                    border["bottom"]=True
-                    border["left"]=True
-                    border["right"]=True
-                elif border_type=="top":
-                    border["top"]=True    
-                elif border_type=="bottom":
-                    border["bottom"]=True
-                elif border_type=="left":
-                    border["left"]=True    
-                elif border_type=="right":
-                    border["right"]=True
-                elif border_type=="outer":    
-                    if row==top:
+        for selection in ranges:
+            top=selection.topRow()
+            bottom=selection.bottomRow()
+            left=selection.leftColumn()
+            right=selection.rightColumn()
+            for row in range(top,bottom+1):
+                for col in range(left,right+1):
+                    key=(row,col)
+                    if border_type=="none":
+                        if key in self.border_data:
+                            border=self.border_data[key]
+                            border["top"]=False
+                            border["bottom"]=False
+                            border["left"]=False
+                            border["right"]=False
+                            if not any(border.values()):
+                                del self.border_data[key]
+                        continue
+                    border=self.border_data.setdefault(key,{"top":False,"bottom":False,"left":False,"right":False})
+                    if border_type=="all":
                         border["top"]=True
-                    if row==bottom:
-                        border["bottom"]=True    
-                    if col==left:
-                        border["left"]=True
-                    if col==right:
-                        border["right"]=True    
-                elif border_type=="inner":
-                    if row<bottom:
                         border["bottom"]=True
-                    if col<right:
+                        border["left"]=True
                         border["right"]=True
+                    elif border_type=="top":
+                        border["top"]=True
+                    elif border_type=="bottom":
+                        border["bottom"]=True
+                    elif border_type=="left":
+                        border["left"]=True
+                    elif border_type=="right":
+                        border["right"]=True
+                    elif border_type=="outer":
+                        if row==top:
+                            border["top"]=True
+                        if row==bottom:
+                            border["bottom"]=True
+                        if col==left:
+                            border["left"]=True
+                        if col==right:
+                            border["right"]=True
+                    elif border_type=="inner":
+                        if row<bottom:
+                            border["bottom"]=True
+                        if col<right:
+                            border["right"]=True
+        self.border_data_map[self.table]=self.border_data
         self.table.clearSelection()
+        if hasattr(self.spreadsheet,"is_modified"):
+            self.spreadsheet.is_modified=True
         self.table.viewport().update()
         self.table.viewport().repaint()
         self.refresh()

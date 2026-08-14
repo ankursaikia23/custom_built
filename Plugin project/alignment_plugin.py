@@ -6,7 +6,15 @@ class AlignmentPlugin:
         self.table=spreadsheet.table
 
     def selected_items(self):
-        return self.table.selectedItems()
+        items=[]
+        for index in self.table.selectedIndexes():
+            item=self.table.item(index.row(),index.column())
+            if item is None:
+                from PyQt6.QtWidgets import QTableWidgetItem
+                item=QTableWidgetItem()
+                self.table.setItem(index.row(),index.column(),item)
+            items.append(item)
+        return items
 
     def align_left(self):
         for item in self.selected_items():
