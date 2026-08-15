@@ -15,13 +15,21 @@ class HistoryPlugin:
                 "row":row,
                 "col":col,
                 "text":item.text(),
-                "formula":item.data(Qt.ItemDataRole.UserRole)
+                "formula":item.data(Qt.ItemDataRole.UserRole),
+                "font":item.font(),
+                "foreground":item.foreground(),
+                "background":item.background(),
+                "alignment":item.textAlignment()
             }
         return{
             "row":row,
             "col":col,
             "text":None,
-            "formula":None
+            "formula":None,
+            "font":None,
+            "foreground":None,
+            "background":None,
+            "alignment":None
         }
     
     def create_row_snapshot(self,row):
@@ -42,13 +50,23 @@ class HistoryPlugin:
         text=snapshot["text"]
         formula=snapshot["formula"]
         self.table.blockSignals(True)
-        if text is None:
-            self.table.takeItem(row,col)
-        else:
-            item=QTableWidgetItem(text)
-            item.setData(Qt.ItemDataRole.UserRole,formula)
-            self.table.setItem(row,col,item)
-        self.table.blockSignals(False)
+        try:
+            if text is None:
+                self.table.takeItem(row,col)
+            else:
+                item=QTableWidgetItem(text)
+                item.setData(Qt.ItemDataRole.UserRole,formula)
+                if snapshot.get("font") is not None:
+                    item.setFont(snapshot["font"])
+                if snapshot.get("foreground") is not None:
+                    item.setForeground(snapshot["foreground"])
+                if snapshot.get("background") is not None:
+                    item.setBackground(snapshot["background"])
+                if snapshot.get("alignment") is not None:
+                    item.setTextAlignment(snapshot["alignment"])
+                self.table.setItem(row,col,item)
+        finally:
+            self.table.blockSignals(False)
         if hasattr(self.spreadsheet,"formula_plugin"):
             self.spreadsheet.formula_plugin.recalculate()
         
@@ -86,8 +104,9 @@ class HistoryPlugin:
             for index,rowdata in enumerate(snapshots):
                 self.table.insertRow(row+index)
                 for snapshot in rowdata:
-                    snapshot["row"]=row+index
-                    self.apply_snapshot(snapshot)
+                    restored=dict(snapshot)
+                    restored["row"]=row+index
+                    self.apply_snapshot(restored)
         elif operation["type"]=="insert_columns":
             col=operation["data"]["col"]
             count=operation["data"]["count"]
@@ -99,10 +118,12 @@ class HistoryPlugin:
             for index,coldata in enumerate(snapshots):
                 self.table.insertColumn(col+index)
                 for snapshot in coldata:
-                    snapshot["col"]=col+index
-                    self.apply_snapshot(snapshot)
+                    restored=dict(snapshot)
+                    restored["col"]=col+index
+                    self.apply_snapshot(restored)
         self.table.blockSignals(False)
         self.redo_stacks[table].append(operation)
+        self.spreadsheet.is_modified=True
     
     def redo(self):
         table=self.table
@@ -137,3 +158,4 @@ class HistoryPlugin:
                 self.table.removeColumn(col)
         self.table.blockSignals(False)
         self.undo_stacks[table].append(operation)
+        self.spreadsheet.is_modified=True

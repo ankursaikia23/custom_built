@@ -16,6 +16,7 @@ class GridTable(QTableWidget):
         self.fill_source_type=""
         self.fill_origin_row=-1
         self.fill_origin_col=-1
+        self.setMouseTracking(True)
 
     def mousePressEvent(self,event):
         if event.button()==Qt.MouseButton.LeftButton:
@@ -60,6 +61,14 @@ class GridTable(QTableWidget):
                 self.fill_last_col=index.column()
                 self.perform_fill(index.row(),index.column())
             self.fill_active=False
+            self.fill_start_row=-1
+            self.fill_start_col=-1
+            self.fill_last_row=-1
+            self.fill_last_col=-1
+            self.fill_source=""
+            self.fill_source_type=""
+            self.fill_origin_row=-1
+            self.fill_origin_col=-1
             event.accept()
             return
         super().mouseReleaseEvent(event)
@@ -113,38 +122,41 @@ class GridTable(QTableWidget):
             return
         row_step=target_row-origin_row
         col_step=target_col-origin_col
+        changed=False
         if abs(row_step)>=abs(col_step):
-            direction=1 if row_step>0 else -1
             start=min(origin_row,target_row)
             end=max(origin_row,target_row)
             for row in range(start,end+1):
                 if row==origin_row:
                     continue
-                offset=(row-origin_row)*direction if direction<0 else row-origin_row
-                if row_step<0:
-                    offset=row-origin_row
+                offset=row-origin_row
                 value=self.fill_value(offset)
                 item=self.item(row,origin_col)
                 if item is None:
                     item=QTableWidgetItem()
                     self.setItem(row,origin_col,item)
-                item.setText(value)
+                if item.text()!=value:
+                    item.setText(value)
+                    changed=True
         else:
-            direction=1 if col_step>0 else -1
             start=min(origin_col,target_col)
             end=max(origin_col,target_col)
             for col in range(start,end+1):
                 if col==origin_col:
                     continue
                 offset=col-origin_col
-                if direction<0:
-                    offset=col-origin_col
                 value=self.fill_value(offset)
                 item=self.item(origin_row,col)
                 if item is None:
                     item=QTableWidgetItem()
                     self.setItem(origin_row,col,item)
-                item.setText(value)
+                if item.text()!=value:
+                    item.setText(value)
+                    changed=True
+        if changed and self.parent() is not None:
+            spreadsheet=getattr(self.parent(),"spreadsheet",None)
+            if spreadsheet is not None:
+                spreadsheet.is_modified=True
                 
 class GridPlugin:
     def __init__(self):

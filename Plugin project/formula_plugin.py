@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt
 class FormulaPlugin:
     def __init__(self,window):
         self.window=window
+        self.evaluating=set()
 
     def column_to_number(self,column):
         result=0
@@ -13,6 +14,9 @@ class FormulaPlugin:
         return result-1
 
     def get_cell_value(self,reference):
+        reference=reference.upper()
+        if reference in self.evaluating:
+            return 0
         match=re.fullmatch(r"([A-Z]+)(\d+)",reference.upper())
         if not match:
             return 0
@@ -35,11 +39,17 @@ class FormulaPlugin:
         formula=item.data(Qt.ItemDataRole.UserRole)
     
         if isinstance(formula,str) and formula.startswith("="):
-            value=self.evaluate(formula)
-            try:
-                return float(value)
-            except:
+            if reference in self.evaluating:
                 return 0
+            self.evaluating.add(reference)
+            try:
+                value=self.evaluate(formula)
+                try:
+                    return float(value)
+                except (ValueError,TypeError):
+                    return 0
+            finally:
+                self.evaluating.discard(reference)
     
         text=item.text().strip()
     
@@ -73,7 +83,7 @@ class FormulaPlugin:
                     continue
                 item=self.window.table.item(row,col)
                 if item is None:
-                    values.append(0)
+                    values.append(None)
                     continue
                 formula=item.data(Qt.ItemDataRole.UserRole)
                 if isinstance(formula,str) and formula.startswith("="):
@@ -81,7 +91,7 @@ class FormulaPlugin:
                 else:
                     text=item.text().strip()
                     if text=="":
-                        values.append(0)
+                        values.append(None)
                         continue
                     try:
                         value=float(text)
@@ -90,31 +100,31 @@ class FormulaPlugin:
                 try:
                     values.append(float(value))
                 except:
-                    values.append(0)
+                    values.append(None)
         return values
     
     def sum_function(self,range_text):
         values=self.get_range_values(range_text)
-        return sum(values)
+        return sum(value for value in values if value is not None)
     
     def count_function(self,range_text):
         values=self.get_range_values(range_text)
-        return len(values)
+        return sum(1 for value in values if value is not None)
     
     def average_function(self,range_text):
-        values=self.get_range_values(range_text)
+        values=[value for value in self.get_range_values(range_text) if value is not None]
         if not values:
             return 0
         return sum(values)/len(values)
     
     def min_function(self,range_text):
-        values=self.get_range_values(range_text)
+        values=[value for value in self.get_range_values(range_text) if value is not None]
         if not values:
             return 0
         return min(values)
     
     def max_function(self,range_text):
-        values=self.get_range_values(range_text)
+        values=[value for value in self.get_range_values(range_text) if value is not None]
         if not values:
             return 0
         return max(values)
@@ -203,9 +213,11 @@ class FormulaPlugin:
             return
         if text.strip()=="":
             item.setData(Qt.ItemDataRole.UserRole,None)
+            self.window.is_modified=True
             return
         if not text.startswith("="):
             item.setData(Qt.ItemDataRole.UserRole,None)
+            self.window.is_modified=True
             return
         formula=text
         result=self.evaluate(formula)
@@ -213,30 +225,25 @@ class FormulaPlugin:
         self.window.table.blockSignals(True)
         item.setText(str(result))
         self.window.table.blockSignals(False)
+        self.window.is_modified=True
 
     def recalculate(self):
         table=self.window.table
         formulas=[]
-    
         for row in range(table.rowCount()):
             for column in range(table.columnCount()):
                 item=table.item(row,column)
-    
                 if item is None:
                     continue
-    
                 formula=item.data(Qt.ItemDataRole.UserRole)
-    
                 if isinstance(formula,str) and formula.startswith("="):
                     formulas.append((item,formula))
-    
         table.blockSignals(True)
-    
-        for item,formula in formulas:
-            result=self.evaluate(formula)
-            item.setText(str(result))
-    
-        table.blockSignals(False)
+        try:
+            for item,formula in formulas:
+                item.setText(str(self.evaluate(formula)))
+        finally:
+            table.blockSignals(False)
         
         
     def insert_function(self,function_name):

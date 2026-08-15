@@ -37,23 +37,42 @@ class KeyboardPlugin:
             Qt.Key.Key_Delete,
             Qt.Key.Key_Backspace
         ):
-            self.table.blockSignals(True)
-
-            changed=[]
-
-            for item in self.table.selectedItems():
-                changed.append(item)
-                item.setText("")
-                item.setData(
-                    Qt.ItemDataRole.UserRole,
-                    None
+            selected=list(self.table.selectedItems())
+            if not selected:
+                return True
+            
+            snapshots=[]
+            for item in selected:
+                snapshots.append(
+                    self.spreadsheet.history_plugin.create_cell_snapshot(
+                        item.row(),
+                        item.column()
+                    )
                 )
-
-            self.table.blockSignals(False)
-
-            for item in changed:
+            
+            self.table.blockSignals(True)
+            try:
+                for item in selected:
+                    item.setText("")
+                    item.setData(
+                        Qt.ItemDataRole.UserRole,
+                        None
+                    )
+            finally:
+                self.table.blockSignals(False)
+            
+            if hasattr(self.spreadsheet,"history_plugin"):
+                self.spreadsheet.history_plugin.push_operation(
+                    snapshots,
+                    [],
+                    "delete_contents"
+                )
+            
+            self.spreadsheet.is_modified=True
+            
+            for item in selected:
                 self.spreadsheet.cell_plugin.finish_edit(item)
-
+            
             return True
 
         if event.key()==Qt.Key.Key_Equal:
