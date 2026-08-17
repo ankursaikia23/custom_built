@@ -119,7 +119,9 @@ class SpreadsheetWindow(QMainWindow):
         self.toolbar_plugin.underline_action.triggered.connect(self.format_plugin.set_underline)
         self.toolbar_plugin.strike_action.triggered.connect(self.format_plugin.set_strike)
         self.toolbar_plugin.wrap_action.triggered.connect(self.format_plugin.toggle_wrap_text)
+        self.toolbar_plugin.merge_action.triggered.connect(self.grid_plugin.merge_unmerge_selected_cells)
         self.toolbar_plugin.merge_action.triggered.connect(self.grid_plugin.merge_selected_cells)
+        self.toolbar_plugin.unmerge_action.triggered.connect(self.grid_plugin.unmerge_selected_cells)
         self.toolbar_plugin.horizontal_alignment.currentTextChanged.connect(self.change_horizontal_alignment)
         self.toolbar_plugin.vertical_alignment.currentTextChanged.connect(self.change_vertical_alignment)
         self.toolbar_plugin.font_color_action.triggered.connect(self.color_plugin.set_font_color)
@@ -269,14 +271,11 @@ class SpreadsheetWindow(QMainWindow):
             QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Yes
         )
-    
         if reply==QMessageBox.StandardButton.Cancel:
             event.ignore()
             return
-    
         if reply==QMessageBox.StandardButton.Yes:
             self.file_plugin.save_file()
-    
         self.settings_plugin.save_window_state()
         event.accept()
 

@@ -1,5 +1,5 @@
 import os
-from PyQt6.QtWidgets import QFileDialog,QTableWidgetItem
+from PyQt6.QtWidgets import QFileDialog, QTableWidgetItem
 
 class PDFPlugin:
     def __init__(self,spreadsheet):

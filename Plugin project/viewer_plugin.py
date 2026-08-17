@@ -1,8 +1,11 @@
 import os
 import fitz
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QImage,QPixmap
-from PyQt6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QPushButton,QLabel,QScrollArea,QSpinBox,QFrame,QSizePolicy
+from PyQt6.QtGui import QImage, QPixmap, QPainter
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QScrollArea, QSpinBox, QFrame,
+    QSizePolicy    
+)
 
 class ViewerScrollArea(QScrollArea):
     def __init__(self,viewer):
@@ -174,7 +177,6 @@ class ViewerPlugin(QWidget):
         canvas=QPixmap(max(1,total_width),max(1,total_height))
         canvas.fill(Qt.GlobalColor.white)
         painter=None
-        from PyQt6.QtGui import QPainter
         painter=QPainter(canvas)
         y=0
         for pixmap in pixmaps:

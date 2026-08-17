@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QCalendarWidget,QDialog,QVBoxLayout,QTableWidgetItem
+from PyQt6.QtWidgets import QCalendarWidget, QDialog, QVBoxLayout, QTableWidgetItem
 
 class DatePlugin:
     def __init__(self,spreadsheet):

@@ -1,8 +1,8 @@
-from PyQt6.QtWidgets import QTableWidget,QAbstractItemView,QHeaderView,QTableWidgetItem
-from PyQt6.QtCore import Qt,QDate,QPoint
-from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtWidgets import QTableWidget, QAbstractItemView, QHeaderView, QTableWidgetItem
+from PyQt6.QtCore import Qt,QDate
+# from PyQt6.QtGui import QMouseEvent
 from datetime import datetime,timedelta
-import re
+# import re
 
 class GridTable(QTableWidget):
     def __init__(self,rows,columns):
@@ -224,6 +224,29 @@ class GridPlugin:
             self.selection_changed_callback()
     
     def merge_selected_cells(self):
+        ranges=self.table.selectedRanges()
+        if not ranges:
+            return
+        selection=ranges[0]
+        row=selection.topRow()
+        col=selection.leftColumn()
+        if self.table.rowSpan(row,col)>1 or self.table.columnSpan(row,col)>1:
+            return
+        if selection.rowCount()<2 and selection.columnCount()<2:
+            return
+        self.table.setSpan(row,col,selection.rowCount(),selection.columnCount())
+        
+    def unmerge_selected_cells(self):
+        ranges=self.table.selectedRanges()
+        if not ranges:
+            return
+        selection=ranges[0]
+        row=selection.topRow()
+        col=selection.leftColumn()
+        if self.table.rowSpan(row,col)>1 or self.table.columnSpan(row,col)>1:
+            self.table.setSpan(row,col,1,1)
+            
+    def merge_unmerge_selected_cells(self):
         ranges=self.table.selectedRanges()
         if not ranges:
             return

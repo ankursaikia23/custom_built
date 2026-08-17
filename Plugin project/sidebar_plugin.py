@@ -2,8 +2,7 @@ import os
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QAction, QIcon, QFontMetrics
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QPushButton, QFrame, QHBoxLayout, QComboBox, QMenu, QScrollArea,
-    QInputDialog
+    QWidget, QVBoxLayout, QPushButton, QFrame, QHBoxLayout, QComboBox, QMenu, QScrollArea
 )
 
 class SidebarPlugin(QFrame):
@@ -89,7 +88,8 @@ class SidebarPlugin(QFrame):
         self.strike_action.setCheckable(True)
         self.wrap_action=QAction("Wrap Text",spreadsheet)
         self.wrap_action.setCheckable(True)
-        self.merge_action=QAction("Merge / Unmerge Cells",spreadsheet)
+        self.merge_action=QAction("Merge Cells",spreadsheet)
+        self.unmerge_action=QAction("Unmerge Cells",spreadsheet)
         self.font_color_action=QAction("Font Color",spreadsheet)
         self.fill_color_action=QAction("Fill Color",spreadsheet)
         self.image_action=QAction(self.get_icon("Insert Image"),"Insert Image",spreadsheet)
@@ -138,7 +138,8 @@ class SidebarPlugin(QFrame):
         self.add_button("Underline","Underline",self.underline_action)
         self.add_button("Strikethrough","Strikethrough",self.strike_action)
         self.add_button("Wrap Text","Wrap Text",self.wrap_action)
-        self.add_button("Merge / Unmerge","Merge Unmerge",self.merge_action)
+        self.add_button("Merge","Merge",self.merge_action)
+        self.add_button("Unmerge","Unmerge",self.unmerge_action)
         self.add_separator()
         self.add_button("Font Color","Font Color",self.font_color_action)
         self.add_button("Fill Color","Fill Color",self.fill_color_action)
@@ -203,7 +204,7 @@ class SidebarPlugin(QFrame):
             "Underline",
             "Strikethrough",
             "Wrap Text",
-            "Merge / Unmerge Cells",
+            "Unmerge Cells",
             "Font Color",
             "Fill Color",
             "Borders",

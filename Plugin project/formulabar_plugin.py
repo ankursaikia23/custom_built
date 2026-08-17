@@ -5,7 +5,6 @@ from PyQt6.QtGui import QTextCursor
 from PyQt6.QtCore import Qt
 
 class TypeArea(QPlainTextEdit):
-
     def __init__(self,parent=None):
         super().__init__(parent)
         self.plugin=None
@@ -16,7 +15,6 @@ class TypeArea(QPlainTextEdit):
         super().keyPressEvent(event)
 
 class FormulaBarPlugin:
-
     FUNCTIONS=[
         "SUM",
         "AVERAGE",
@@ -24,7 +22,6 @@ class FormulaBarPlugin:
         "MIN",
         "MAX"
     ]
-
     def __init__(self,spreadsheet):
         self.spreadsheet=spreadsheet
         self.table=spreadsheet.table
@@ -63,7 +60,6 @@ class FormulaBarPlugin:
     def apply_bar(self):
         if self.updating:
             return
-    
         text=self.type_area.toPlainText()    
         self.formula_mode=text.startswith("=")
         self.update_popup()
@@ -95,34 +91,25 @@ class FormulaBarPlugin:
     def current_function_prefix(self):
         text=self.type_area.toPlainText()
         cursor=self.type_area.textCursor().position()
-    
         if cursor==0:
             return None
-    
         text=text[:cursor]
-    
         if not text.startswith("="):
             return None
-    
         if "(" in text:
             return None
-    
         return text[1:]
     
     def update_popup(self):
         text=self.type_area.toPlainText()
-    
         if not text.startswith("="):
             self.hide_popup()
             return
-    
         cursor=self.type_area.textCursor().position()
-        prefix=text[1:cursor]
-    
+        prefix=text[1:cursor]    
         if "(" in prefix:
             self.hide_popup()
             return
-    
         self.show_popup(prefix)
         
     def popup_item_clicked(self,item):
@@ -134,21 +121,16 @@ class FormulaBarPlugin:
     
     def insert_selected_function(self):
         item=self.list_widget.currentItem()
-    
         if item is None:
-            return
-    
+            return    
         text="="+item.text()+"("
         self.updating=True
         self.formula_mode=True
         self.selecting_formula=False
-    
         self.type_area.setPlainText(text)
-    
         cursor=self.type_area.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self.type_area.setTextCursor(cursor)
-    
         self.updating=False
         self.hide_popup()
         self.table.setFocus()
@@ -157,16 +139,12 @@ class FormulaBarPlugin:
     def update_bar(self,currentRow,currentColumn,previousRow,previousColumn):
         if self.updating or self.selecting_formula:
             return
-    
         self.table=self.spreadsheet.table
         self.hide_popup()
-        self.updating=True
-    
+        self.updating=True    
         item=self.table.item(currentRow,currentColumn)
-    
         if item:
             formula=item.data(Qt.ItemDataRole.UserRole)
-    
             if isinstance(formula,str) and formula.startswith("="):
                 self.type_area.setPlainText(formula)
                 self.formula_mode=True
@@ -176,7 +154,6 @@ class FormulaBarPlugin:
         else:
             self.type_area.clear()
             self.formula_mode=False
-    
         self.updating=False
         self.selecting_formula=False
     
@@ -184,37 +161,27 @@ class FormulaBarPlugin:
         self.table=self.spreadsheet.table
         row=self.table.currentRow()
         column=self.table.currentColumn()
-    
         if row<0 or column<0:
             return
-    
-        item=self.table.item(row,column)
-    
+        item=self.table.item(row,column)    
         if item is None:
             item=QTableWidgetItem()
             self.table.setItem(row,column,item)
-    
         text=self.type_area.toPlainText()    
         self.table.blockSignals(True)
         item.setText(text)
-    
         if text.startswith("="):
             item.setData(Qt.ItemDataRole.UserRole,text)
         else:
             item.setData(Qt.ItemDataRole.UserRole,None)
-    
         self.table.blockSignals(False)
         self.spreadsheet.is_modified=True
-    
         if not text.startswith("="):
             return
-    
         if text.endswith("("):
-            return
-    
+            return    
         if text.endswith(":"):
             return
-    
         if hasattr(self.spreadsheet,"formula_plugin"):
             self.spreadsheet.formula_plugin.apply_formula(
                 row,
@@ -247,12 +214,10 @@ class FormulaBarPlugin:
                 self.selecting_formula=False
                 self.type_area.setFocus()
                 return True
-    
         if event.key() in(
             Qt.Key.Key_Return,
             Qt.Key.Key_Enter
         ):
             self.commit_to_cell()
-            return True
-    
+            return True    
         return False

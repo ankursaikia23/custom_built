@@ -18,7 +18,6 @@ class FilePlugin:
 
     def new_file(self):
         before=[]
-
         for r in range(self.table.rowCount()):
             for c in range(self.table.columnCount()):
                 before.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))
@@ -34,7 +33,6 @@ class FilePlugin:
         self.table.setRowCount(100)
         self.table.setColumnCount(26)
         after=[]
-
         for r in range(self.table.rowCount()):
             for c in range(self.table.columnCount()):
                 after.append(self.spreadsheet.history_plugin.create_cell_snapshot(r,c))

@@ -8,7 +8,6 @@ class FormulaPlugin:
 
     def column_to_number(self,column):
         result=0
-        
         for char in column:
             result=result*26+(ord(char)-64)
         return result-1
@@ -20,24 +19,19 @@ class FormulaPlugin:
         match=re.fullmatch(r"([A-Z]+)(\d+)",reference.upper())
         if not match:
             return 0
-    
         column,row=match.groups()
         row=int(row)-1
         column=self.column_to_number(column)
-    
         if row<0 or column<0:
             return 0
         if row>=self.window.table.rowCount():
             return 0
         if column>=self.window.table.columnCount():
             return 0
-    
         item=self.window.table.item(row,column)
         if item is None:
             return 0
-    
         formula=item.data(Qt.ItemDataRole.UserRole)
-    
         if isinstance(formula,str) and formula.startswith("="):
             if reference in self.evaluating:
                 return 0
@@ -50,9 +44,7 @@ class FormulaPlugin:
                     return 0
             finally:
                 self.evaluating.discard(reference)
-    
         text=item.text().strip()
-    
         try:
             return float(text)
         except:
@@ -159,48 +151,37 @@ class FormulaPlugin:
     
     def replace_cell_references(self,formula):
         pattern=r"\b([A-Z]+[0-9]+)\b"
-    
         while True:
             match=re.search(pattern,formula)
             if not match:
                 break
-    
             reference=match.group(1)
-            value=self.get_cell_value(reference)
-    
+            value=self.get_cell_value(reference)    
             formula=(
                 formula[:match.start()]
                 +str(value)
                 +formula[match.end():]
             )
-    
         return formula
     
     def evaluate(self,value):
         if not isinstance(value,str):
             return value
-    
         if not value.startswith("="):
-            return value
-    
+            return value    
         formula=value[1:].strip().upper()
-    
         formula=self.replace_functions(formula)
         formula=self.replace_cell_references(formula)
-    
         try:
             result=eval(
                 formula,
                 {"__builtins__":None},
                 {}
             )
-    
             if isinstance(result,float):
                 if result.is_integer():
                     return int(result)
-    
             return result
-    
         except:
             return "#ERROR"
         
@@ -249,7 +230,6 @@ class FormulaPlugin:
     def insert_function(self,function_name):
         table=self.window.table
         item=table.currentItem()
-    
         if item is None:
             from PyQt6.QtWidgets import QTableWidgetItem
             row=table.currentRow()
@@ -257,7 +237,6 @@ class FormulaPlugin:
             if row<0 or column<0:
                 return
             item=QTableWidgetItem("")
-            table.setItem(row,column,item)
-    
+            table.setItem(row,column,item)    
         item.setText(f"={function_name}()")
         table.editItem(item)

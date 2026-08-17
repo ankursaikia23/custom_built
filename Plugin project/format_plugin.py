@@ -1,4 +1,4 @@
-from PyQt6.QtGui import QFont,QBrush,QColor
+from PyQt6.QtGui import QFont, QBrush 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QTableWidgetItem
 
