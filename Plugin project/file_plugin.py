@@ -121,10 +121,12 @@ class FilePlugin:
                 item=table.item(row,col)
                 if item is not None:
                     font=item.font()
-                    foreground=item.foreground().color()
-                    background=item.background().color()
+                    foreground_brush=item.foreground()
+                    background_brush=item.background()
+                    foreground=foreground_brush.color()
+                    background=background_brush.color()
                     alignment=int(item.textAlignment())
-                    data["cell_formats"][f"{row},{col}"]={
+                    format_data={
                         "font":{
                             "family":font.family(),
                             "point_size":font.pointSizeF(),
@@ -138,13 +140,13 @@ class FilePlugin:
                         "foreground":{
                             "name":foreground.name(QColor.NameFormat.HexArgb)
                         },
-                        "background":{
-                            "name":background.name(QColor.NameFormat.HexArgb)
-                        },
                         "alignment":alignment,
                         "user_role":item.data(Qt.ItemDataRole.UserRole),
                         "user_role_1":item.data(Qt.ItemDataRole.UserRole+1)
                     }
+                    if background_brush.style()!=Qt.BrushStyle.NoBrush:
+                        format_data["background"]={"name":background.name(QColor.NameFormat.HexArgb)}
+                    data["cell_formats"][f"{row},{col}"]=format_data
                 row_span=table.rowSpan(row,col)
                 col_span=table.columnSpan(row,col)
                 if row_span>1 or col_span>1:
@@ -219,12 +221,13 @@ class FilePlugin:
                 foreground=QColor(str(foreground_name))
                 if foreground.isValid():
                     item.setForeground(foreground)
-            background_data=format_data.get("background",{})
-            background_name=background_data.get("name")
-            if background_name:
-                background=QColor(str(background_name))
-                if background.isValid():
-                    item.setBackground(background)
+            background_data=format_data.get("background")
+            if background_data:
+                background_name=background_data.get("name")
+                if background_name:
+                    background=QColor(str(background_name))
+                    if background.isValid():
+                        item.setBackground(background)
             if "alignment" in format_data:
                 item.setTextAlignment(Qt.AlignmentFlag(int(format_data.get("alignment"))))
             if "user_role" in format_data:

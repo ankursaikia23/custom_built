@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QColorDialog,QTableWidgetItem
+from PyQt6.QtWidgets import QColorDialog, QTableWidgetItem
 from PyQt6.QtGui import QColor
 
 class ColorPlugin:

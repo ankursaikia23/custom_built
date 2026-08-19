@@ -214,10 +214,4 @@ class FormulaBarPlugin:
                 self.selecting_formula=False
                 self.type_area.setFocus()
                 return True
-        if event.key() in(
-            Qt.Key.Key_Return,
-            Qt.Key.Key_Enter
-        ):
-            self.commit_to_cell()
-            return True    
-        return False
+            return False

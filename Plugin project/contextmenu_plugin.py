@@ -72,24 +72,25 @@ class ContextMenuPlugin:
         first_row=min(selected_rows)
         last_row=max(selected_rows)
         insert_at=first_row if direction=="up" else last_row+1
-        for _ in range(count):
-            self.table.insertRow(insert_at)
-            if insert_at>0:
-                self.table.setRowHeight(insert_at,self.table.rowHeight(insert_at-1))
-            elif self.table.rowCount()>1:
-                self.table.setRowHeight(insert_at,self.table.rowHeight(insert_at+1))
+        self.table.blockSignals(True)
+        self.table.setUpdatesEnabled(False)
+        try:
+            for _ in range(count):
+                self.table.insertRow(insert_at)
+                if insert_at>0:
+                    self.table.setRowHeight(insert_at,self.table.rowHeight(insert_at-1))
+                elif self.table.rowCount()>1:
+                    self.table.setRowHeight(insert_at,self.table.rowHeight(insert_at+1))
+        finally:
+            self.table.setUpdatesEnabled(True)
+            self.table.blockSignals(False)
         if hasattr(self.spreadsheet,"image_plugin"):
             self.spreadsheet.image_plugin.shift_rows(insert_at,count)
         if hasattr(self.spreadsheet,"pdf_plugin"):
             self.spreadsheet.pdf_plugin.shift_rows(insert_at,count)
         if hasattr(self.spreadsheet,"border_plugin"):
             self.spreadsheet.border_plugin.shift_rows(insert_at,count)
-        self.spreadsheet.history_plugin.push_operation(
-            [],
-            [],
-            "insert_rows",
-            {"row":insert_at,"count":count}
-        )
+        self.spreadsheet.history_plugin.push_operation([],[],"insert_rows",{"row":insert_at,"count":count})
         self.spreadsheet.is_modified=True
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()
@@ -138,24 +139,25 @@ class ContextMenuPlugin:
         first_col=min(selected_columns)
         last_col=max(selected_columns)
         insert_at=first_col if direction=="left" else last_col+1
-        for _ in range(count):
-            self.table.insertColumn(insert_at)
-            if insert_at>0:
-                self.table.setColumnWidth(insert_at,self.table.columnWidth(insert_at-1))
-            elif self.table.columnCount()>1:
-                self.table.setColumnWidth(insert_at,self.table.columnWidth(insert_at+1))
+        self.table.blockSignals(True)
+        self.table.setUpdatesEnabled(False)
+        try:
+            for _ in range(count):
+                self.table.insertColumn(insert_at)
+                if insert_at>0:
+                    self.table.setColumnWidth(insert_at,self.table.columnWidth(insert_at-1))
+                elif self.table.columnCount()>1:
+                    self.table.setColumnWidth(insert_at,self.table.columnWidth(insert_at+1))
+        finally:
+            self.table.setUpdatesEnabled(True)
+            self.table.blockSignals(False)
         if hasattr(self.spreadsheet,"image_plugin"):
             self.spreadsheet.image_plugin.shift_columns(insert_at,count)
         if hasattr(self.spreadsheet,"pdf_plugin"):
             self.spreadsheet.pdf_plugin.shift_columns(insert_at,count)
         if hasattr(self.spreadsheet,"border_plugin"):
             self.spreadsheet.border_plugin.shift_columns(insert_at,count)
-        self.spreadsheet.history_plugin.push_operation(
-            [],
-            [],
-            "insert_columns",
-            {"col":insert_at,"count":count}
-        )
+        self.spreadsheet.history_plugin.push_operation([],[],"insert_columns",{"col":insert_at,"count":count})
         self.spreadsheet.is_modified=True
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()
@@ -207,6 +209,22 @@ class ContextMenuPlugin:
         self.spreadsheet.is_modified=True
         if hasattr(self.spreadsheet,"grid_plugin"):
             self.spreadsheet.grid_plugin.refresh_headers()
+            
+    def remove_selected_items(self):
+        selected_cells=set()
+        for index in self.table.selectionModel().selectedIndexes():
+            selected_cells.add((index.row(),index.column()))
+        if not selected_cells:
+            row=self.table.currentRow()
+            col=self.table.currentColumn()
+            if row>=0 and col>=0:
+                selected_cells.add((row,col))
+        for row,col in selected_cells:
+            self.table.removeCellWidget(row,col)
+            if hasattr(self.spreadsheet,"image_plugin"):
+                self.spreadsheet.image_plugin.images.pop((row,col),None)
+            if hasattr(self.spreadsheet,"pdf_plugin"):
+                self.spreadsheet.pdf_plugin.pdfs.pop((row,col),None)
 
     def show_menu(self,pos):
         menu=QMenu(self.table)
@@ -230,11 +248,4 @@ class ContextMenuPlugin:
         elif action==pdf_action and hasattr(self.spreadsheet,"pdf_plugin"):
             self.spreadsheet.pdf_plugin.insert_pdf()
         elif action==remove_action:
-            r=self.table.currentRow()
-            c=self.table.currentColumn()
-            self.table.takeItem(r,c)
-            self.table.removeCellWidget(r,c)
-            if hasattr(self.spreadsheet,"image_plugin"):
-                self.spreadsheet.image_plugin.images.pop((r,c),None)
-            if hasattr(self.spreadsheet,"pdf_plugin"):
-                self.spreadsheet.pdf_plugin.pdfs.pop((r,c),None)
+            self.remove_selected_items()

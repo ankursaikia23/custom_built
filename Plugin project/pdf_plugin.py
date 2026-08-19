@@ -47,9 +47,9 @@ class PDFPlugin:
         updated={}
         for (row,col),path in sorted(self.pdfs.items()):
             if col>=start_col:
-                updated[(row,col)]=path
-            else:
                 updated[(row,col+offset)]=path
+            else:
+                updated[(row,col)]=path
         self.pdfs=updated
         self.pdfs_map[self.table]=self.pdfs
         self.refresh_pdfs()

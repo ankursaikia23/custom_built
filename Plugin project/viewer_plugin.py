@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QImage, QPixmap, QPainter
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QScrollArea, QSpinBox, QFrame,
-    QSizePolicy    
+    QSizePolicy
 )
 
 class ViewerScrollArea(QScrollArea):
@@ -14,6 +14,9 @@ class ViewerScrollArea(QScrollArea):
 
     def wheelEvent(self,event):
         if self.viewer.current_type in ("image","pdf"):
+            if self.viewer.current_cell_key in self.viewer.cell_states and self.viewer.cell_states[self.viewer.current_cell_key]["locked"]:
+                event.accept()
+                return
             delta=event.angleDelta().y()
             if delta==0:
                 event.accept()
@@ -27,13 +30,15 @@ class ViewerScrollArea(QScrollArea):
             event.accept()
             return
         super().wheelEvent(event)
-        
+
 class ViewerPlugin(QWidget):
     def __init__(self,spreadsheet):
         super().__init__(spreadsheet)
         self.spreadsheet=spreadsheet
         self.current_path=None
         self.current_type=None
+        self.current_cell_key=None
+        self.cell_states={}
         self.image=None
         self.pdf_document=None
         self.pdf_pages=[]
@@ -52,6 +57,17 @@ class ViewerPlugin(QWidget):
         self.title.setStyleSheet("font-weight:bold;")
         self.header.addWidget(self.title)
         self.header.addStretch()
+        self.reset_button=QPushButton("Reset")
+        self.reset_button.setFixedHeight(28)
+        self.reset_button.clicked.connect(self.reset_current_cell)
+        self.reset_button.setVisible(False)
+        self.header.addWidget(self.reset_button)
+        self.lock_button=QPushButton("Unlocked")
+        self.lock_button.setCheckable(True)
+        self.lock_button.setFixedHeight(28)
+        self.lock_button.clicked.connect(self.toggle_lock)
+        self.lock_button.setVisible(False)
+        self.header.addWidget(self.lock_button)
         self.scale_label=QLabel("Scale")
         self.header.addWidget(self.scale_label)
         self.scale=QSpinBox()
@@ -82,7 +98,7 @@ class ViewerPlugin(QWidget):
         self.frame.setVisible(True)
         self.main_layout.addWidget(self.frame)
         self.show_message("Select an image or PDF")
-    
+
     def show_message(self,text):
         self.image_label.clear()
         self.image_label.setText(text)
@@ -90,13 +106,18 @@ class ViewerPlugin(QWidget):
         self.title.setText("Viewer")
         self.current_path=None
         self.current_type=None
+        self.current_cell_key=None
         self.image=None
         self.pdf_pages=[]
         self.pdf_document=None
+        self.reset_button.setVisible(False)
+        self.lock_button.setVisible(False)
+        self.scale_label.setVisible(True)
+        self.scale.setVisible(True)
         self.scale.blockSignals(True)
         self.scale.setValue(100)
         self.scale.blockSignals(False)
-    
+
     def toggle(self):
         if self.expanded:
             self.expanded=False
@@ -107,6 +128,8 @@ class ViewerPlugin(QWidget):
             self.title.hide()
             self.scale_label.hide()
             self.scale.hide()
+            self.reset_button.hide()
+            self.lock_button.hide()
             if hasattr(self.spreadsheet,"viewer_splitter"):
                 self.spreadsheet.viewer_splitter.setSizes([self.spreadsheet.viewer_splitter.width()-30,30])
         else:
@@ -117,12 +140,59 @@ class ViewerPlugin(QWidget):
             self.title.show()
             self.scale_label.show()
             self.scale.show()
+            if self.current_type in ("image","pdf"):
+                self.reset_button.show()
+                self.lock_button.show()
             if hasattr(self.spreadsheet,"viewer_splitter"):
                 total=self.spreadsheet.viewer_splitter.width()
                 half=max(250,total//2)
                 self.spreadsheet.viewer_splitter.setSizes([half,half])
-    
+
+    def get_cell_state(self):
+        if self.current_cell_key is None:
+            return {"scale":100,"locked":False}
+        if self.current_cell_key not in self.cell_states:
+            self.cell_states[self.current_cell_key]={"scale":100,"locked":False}
+        return self.cell_states[self.current_cell_key]
+
+    def update_cell_state(self):
+        if self.current_cell_key is not None:
+            state=self.get_cell_state()
+            state["scale"]=self.scale.value()
+            state["locked"]=self.lock_button.isChecked()
+
+    def apply_cell_state(self):
+        state=self.get_cell_state()
+        self.scale.blockSignals(True)
+        self.scale.setValue(state["scale"])
+        self.scale.blockSignals(False)
+        self.lock_button.blockSignals(True)
+        self.lock_button.setChecked(state["locked"])
+        self.lock_button.setText("Locked" if state["locked"] else "Unlocked")
+        self.lock_button.blockSignals(False)
+
+    def reset_current_cell(self):
+        if self.current_cell_key is None:
+            return
+        state=self.get_cell_state()
+        state["scale"]=100
+        self.scale.blockSignals(True)
+        self.scale.setValue(100)
+        self.scale.blockSignals(False)
+        self.display_current()
+        self.scroll_area.horizontalScrollBar().setValue(0)
+        self.scroll_area.verticalScrollBar().setValue(0)
+
+    def toggle_lock(self):
+        if self.current_cell_key is None:
+            return
+        state=self.get_cell_state()
+        state["locked"]=self.lock_button.isChecked()
+        self.lock_button.setText("Locked" if state["locked"] else "Unlocked")
+
     def zoom_at_cursor(self,pos,value):
+        if self.current_cell_key is not None and self.get_cell_state()["locked"]:
+            return
         old_scale=self.scale.value()
         if old_scale==value:
             return
@@ -134,17 +204,25 @@ class ViewerPlugin(QWidget):
         self.scale.blockSignals(True)
         self.scale.setValue(value)
         self.scale.blockSignals(False)
+        self.update_cell_state()
         self.display_current()
         ratio=value/old_scale
         new_x=int(image_x*ratio-viewport_pos.x())
         new_y=int(image_y*ratio-viewport_pos.y())
         self.scroll_area.horizontalScrollBar().setValue(max(0,new_x))
         self.scroll_area.verticalScrollBar().setValue(max(0,new_y))
-    
+
     def change_scale(self,value):
         if self.current_type in ("image","pdf"):
+            if self.current_cell_key is not None and self.get_cell_state()["locked"]:
+                state=self.get_cell_state()
+                self.scale.blockSignals(True)
+                self.scale.setValue(state["scale"])
+                self.scale.blockSignals(False)
+                return
+            self.update_cell_state()
             self.display_current()
-    
+
     def display_image(self):
         if self.image is None or self.image.isNull():
             return
@@ -156,7 +234,7 @@ class ViewerPlugin(QWidget):
         self.image_label.setPixmap(pixmap)
         self.image_label.resize(pixmap.size())
         self.image_label.setMinimumSize(pixmap.size())
-    
+
     def display_pdf(self):
         if not self.pdf_pages:
             return
@@ -176,7 +254,6 @@ class ViewerPlugin(QWidget):
             total_height+=spacing*(len(pixmaps)-1)
         canvas=QPixmap(max(1,total_width),max(1,total_height))
         canvas.fill(Qt.GlobalColor.white)
-        painter=None
         painter=QPainter(canvas)
         y=0
         for pixmap in pixmaps:
@@ -187,13 +264,13 @@ class ViewerPlugin(QWidget):
         self.image_label.setPixmap(canvas)
         self.image_label.resize(canvas.size())
         self.image_label.setMinimumSize(canvas.size())
-    
+
     def display_current(self):
         if self.current_type=="image":
             self.display_image()
         elif self.current_type=="pdf":
             self.display_pdf()
-    
+
     def show_file(self,path):
         if not path:
             self.show_message("Select an image or PDF")
@@ -204,9 +281,6 @@ class ViewerPlugin(QWidget):
             return
         self.current_path=path
         self.title.setText(os.path.basename(path))
-        self.scale.blockSignals(True)
-        self.scale.setValue(100)
-        self.scale.blockSignals(False)
         self.image_label.clear()
         self.image=None
         self.pdf_pages=[]
@@ -231,6 +305,9 @@ class ViewerPlugin(QWidget):
                     document.close()
                     self.show_message("Unable to render PDF")
                     return
+                self.reset_button.setVisible(True)
+                self.lock_button.setVisible(True)
+                self.apply_cell_state()
                 self.display_pdf()
             except Exception:
                 self.show_message("Unable to load PDF")
@@ -241,9 +318,15 @@ class ViewerPlugin(QWidget):
             return
         self.current_type="image"
         self.image=image
+        self.reset_button.setVisible(True)
+        self.lock_button.setVisible(True)
+        self.apply_cell_state()
         self.display_image()
-    
+
     def show_cell(self,row,col):
+        self.current_cell_key=(row,col)
+        if self.current_cell_key not in self.cell_states:
+            self.cell_states[self.current_cell_key]={"scale":100,"locked":False}
         image_path=self.spreadsheet.image_plugin.image_path(row,col)
         if image_path:
             self.show_file(image_path)
@@ -253,6 +336,6 @@ class ViewerPlugin(QWidget):
             self.show_file(pdf_path)
             return
         self.clear()
-    
+
     def clear(self):
         self.show_message("Select an image or PDF")
