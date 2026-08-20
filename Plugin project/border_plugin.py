@@ -9,23 +9,32 @@ class BorderDelegate(QStyledItemDelegate):
 
     def paint(self,painter,option,index):
         super().paint(painter,option,index)
-        key=(index.row(),index.column())
-        if key not in self.border_plugin.border_data:
+        row=index.row()
+        col=index.column()
+        current=self.border_plugin.border_data.get((row,col),{})
+        above=self.border_plugin.border_data.get((row-1,col),{}) if row>0 else {}
+        left=self.border_plugin.border_data.get((row,col-1),{}) if col>0 else {}
+        below=self.border_plugin.border_data.get((row+1,col),{})
+        right=self.border_plugin.border_data.get((row,col+1),{})
+        if not current and not above and not left and not below and not right:
             return
-        border=self.border_plugin.border_data[key]
         painter.save()
         pen=QPen(Qt.GlobalColor.black)
         pen.setWidth(1)
         painter.setPen(pen)
         rect=option.rect
-        if border["top"]:
-            painter.drawLine(rect.left(),rect.top()+1,rect.right(),rect.top()+1)
-        if border["bottom"]:
-            painter.drawLine(rect.left(),rect.bottom()-1,rect.right(),rect.bottom()-1)
-        if border["left"]:
-            painter.drawLine(rect.left()+1,rect.top(),rect.left()+1,rect.bottom())
-        if border["right"]:
-            painter.drawLine(rect.right()-1,rect.top(),rect.right()-1,rect.bottom())
+        top_y=rect.top()
+        bottom_y=rect.bottom()-1
+        left_x=rect.left()
+        right_x=rect.right()-1
+        if current.get("top",False) or above.get("bottom",False):
+            painter.drawLine(left_x,top_y,right_x,top_y)
+        if current.get("bottom",False) or below.get("top",False):
+            painter.drawLine(left_x,bottom_y,right_x,bottom_y)
+        if current.get("left",False) or left.get("right",False):
+            painter.drawLine(left_x,top_y,left_x,bottom_y)
+        if current.get("right",False) or right.get("left",False):
+            painter.drawLine(right_x,top_y,right_x,bottom_y)
         painter.restore()
 
 class BorderPlugin:
