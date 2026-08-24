@@ -826,28 +826,6 @@ class Spreadsheet(QMainWindow):
         self.tabs.setCurrentWidget(table)
         self.update_session_state()
     
-    def serialize_color(self, color):
-        return {
-            "name": color.name(),
-            "alpha": color.alpha()
-        }
-    
-    def deserialize_color(self, data):
-        color = QColor(data.get("name", "#000000"))
-        color.setAlpha(data.get("alpha", 255))
-        return color
-    
-    def serialize_font(self, font):
-        return {
-            "family": font.family(),
-            "pointSize": font.pointSizeF(),
-            "bold": font.bold(),
-            "italic": font.italic(),
-            "underline": font.underline(),
-            "strikeOut": font.strikeOut(),
-            "weight": font.weight()
-        }
-    
     def deserialize_font(self, data):
         from PyQt5.QtGui import QFont
         font = QFont(data.get("family", "Arial"))
@@ -859,63 +837,6 @@ class Spreadsheet(QMainWindow):
         if "weight" in data:
             font.setWeight(int(data["weight"]))
         return font
-    
-    def serialize_session_cell(self, item):
-        if item is None:
-            return None
-        foreground = item.foreground().color()
-        background = item.background().color()    
-        return {
-            "text": item.text(),
-            "font": self.serialize_font(item.font()),
-            "foreground": self.serialize_color(foreground),
-            "background": self.serialize_color(background),
-            "alignment": int(item.textAlignment()),
-            "data1": item.data(Qt.UserRole + 1),
-            "data2": item.data(Qt.UserRole + 2),
-            "data3": item.data(Qt.UserRole + 3),
-            "data4": item.data(Qt.UserRole + 4),
-            "tooltip": item.toolTip()
-        }
-    
-    def serialize_session_table(self, table):
-        state = {
-            "rows": table.rowCount(),
-            "columns": table.columnCount(),
-            "cells": [],
-            "spans": [],
-            "row_heights": [table.rowHeight(r) for r in range(table.rowCount())],
-            "column_widths": [table.columnWidth(c) for c in range(table.columnCount())],
-            "border_color": getattr(table, "_border_color", "#000000"),
-            "cell_borders": {}
-        }
-        for r in range(table.rowCount()):
-            row = []
-            for c in range(table.columnCount()):
-                row.append(self.serialize_session_cell(table.item(r, c)))
-            state["cells"].append(row)    
-        for r in range(table.rowCount()):
-            for c in range(table.columnCount()):
-                rowspan = table.rowSpan(r, c)
-                colspan = table.columnSpan(r, c)
-                if rowspan > 1 or colspan > 1:
-                    state["spans"].append([r, c, rowspan, colspan])
-        for key, borders in getattr(table, "_cell_borders", {}).items():
-            state["cell_borders"][f"{key[0]},{key[1]}"] = list(borders)
-        current = table.currentIndex()
-        state["current_cell"] = [
-            current.row(),
-            current.column()
-        ] if current.isValid() else None
-        state["selection_ranges"] = []
-        for selection in table.selectedRanges():
-            state["selection_ranges"].append([
-                selection.topRow(),
-                selection.leftColumn(),
-                selection.bottomRow(),
-                selection.rightColumn()
-            ])
-        return state
         
     def save_session_json(self):
         path = self.session_json_path()
@@ -1550,8 +1471,6 @@ class Spreadsheet(QMainWindow):
         table.resizeColumnToContents(index.column())
         table.resizeRowToContents(index.row())
         self.viewer.show_media(path)
-        self.update_session_state()
-        self.update_session_state()
         self.update_session_state()
     
     def remove_media(self):
