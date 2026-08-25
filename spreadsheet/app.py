@@ -1,16 +1,6 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow
-
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Spreadsheet")
-        self.resize(1200,800)
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f5f6f8;
-            }
-        """)
+from PyQt6.QtWidgets import QApplication
+from ui.main_window import MainWindow
 
 def main():
     app=QApplication(sys.argv)
