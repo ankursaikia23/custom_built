@@ -27,6 +27,7 @@ class MainWindow(QMainWindow):
         for sheet in self.workbook.sheets:
             view=SpreadsheetView()
             view.cellChanged.connect(self.handle_cell_changed)
+            view.currentCellChanged.connect(self.handle_cell_selected)
             self.views.append(view)
             self.sheet_tabs.addTab(view,sheet.name)
         self.sheet_tabs.currentChanged.connect(self.handle_sheet_changed)
@@ -40,7 +41,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.formula_bar)
         layout.addWidget(self.sheet_tabs)
         self.setCentralWidget(container)
-    
+        
     def handle_cell_changed(self,row,column):
         sheet=self.workbook.sheets[self.sheet_tabs.currentIndex()]
         reference=f"{chr(65+column)}{row+1}"
@@ -49,11 +50,27 @@ class MainWindow(QMainWindow):
         sheet.set_cell(reference,value)
         self.formula_bar.setText(value)
         self.status_label.setText(f"{reference} = {value}")
-    
+        
+    def handle_cell_selected(self,current_row,current_column,previous_row,previous_column):
+        if current_row<0 or current_column<0:
+            self.formula_bar.clear()
+            return
+        sheet=self.workbook.sheets[self.sheet_tabs.currentIndex()]
+        reference=f"{chr(65+current_column)}{current_row+1}"
+        cell=sheet.get_cell(reference)
+        value=cell.value if cell else ""
+        self.formula_bar.setText(value)
+        self.status_label.setText(f"{reference} = {value}")
+        
     def handle_sheet_changed(self,index):
-        self.formula_bar.clear()
-        self.status_label.setText(f"Ready - {self.workbook.sheets[index].name}")
-    
+        view=self.views[index]
+        current=view.currentItem()
+        if current is None:
+            self.formula_bar.clear()
+            self.status_label.setText(f"Ready - {self.workbook.sheets[index].name}")
+            return
+        self.handle_cell_selected(current.row(),current.column(),-1,-1)
+        
     def handle_formula_bar(self):
         index=self.sheet_tabs.currentIndex()
         view=self.views[index]
