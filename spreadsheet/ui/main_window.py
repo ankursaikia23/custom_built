@@ -1,6 +1,9 @@
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QTabWidget, QLabel
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QTabWidget, QLabel, QTableWidgetItem
 from PyQt6.QtCore import QSignalBlocker
+from PyQt6.QtGui import QAction
 from core.workbook import Workbook
+from commands.history import History
+from commands.edit_cell import EditCellCommand
 from .spreadsheet_view import SpreadsheetView
 from .formula_bar import FormulaBar
 from .toolbar import SpreadsheetToolbar
@@ -19,6 +22,7 @@ class MainWindow(QMainWindow):
         self.workbook.add_sheet("Sheet1")
         self.workbook.add_sheet("Sheet2")
         self.workbook.add_sheet("Sheet3")
+        self.history=History()
         self.toolbar=SpreadsheetToolbar()
         self.addToolBar(self.toolbar)
         self.formula_bar=FormulaBar()
@@ -34,6 +38,8 @@ class MainWindow(QMainWindow):
         self.formula_bar.returnPressed.connect(self.handle_formula_bar)
         self.status_label=QLabel("Ready")
         self.statusBar().addPermanentWidget(self.status_label)
+        self.toolbar.actions()[2].triggered.connect(self.undo)
+        self.toolbar.actions()[3].triggered.connect(self.redo)
         container=QWidget()
         layout=QVBoxLayout(container)
         layout.setContentsMargins(0,0,0,0)
@@ -41,16 +47,18 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.formula_bar)
         layout.addWidget(self.sheet_tabs)
         self.setCentralWidget(container)
-        
+    
     def handle_cell_changed(self,row,column):
-        sheet=self.workbook.sheets[self.sheet_tabs.currentIndex()]
+        index=self.sheet_tabs.currentIndex()
+        sheet=self.workbook.sheets[index]
         reference=f"{chr(65+column)}{row+1}"
-        item=self.views[self.sheet_tabs.currentIndex()].item(row,column)
+        item=self.views[index].item(row,column)
         value=item.text() if item else ""
-        sheet.set_cell(reference,value)
+        command=EditCellCommand(sheet,reference,value)
+        self.history.execute(command)
         self.formula_bar.setText(value)
         self.status_label.setText(f"{reference} = {value}")
-        
+    
     def handle_cell_selected(self,current_row,current_column,previous_row,previous_column):
         if current_row<0 or current_column<0:
             self.formula_bar.clear()
@@ -61,7 +69,7 @@ class MainWindow(QMainWindow):
         value=cell.value if cell else ""
         self.formula_bar.setText(value)
         self.status_label.setText(f"{reference} = {value}")
-        
+    
     def handle_sheet_changed(self,index):
         view=self.views[index]
         current=view.currentItem()
@@ -70,19 +78,55 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"Ready - {self.workbook.sheets[index].name}")
             return
         self.handle_cell_selected(current.row(),current.column(),-1,-1)
-        
+    
     def handle_formula_bar(self):
         index=self.sheet_tabs.currentIndex()
         view=self.views[index]
         current=view.currentItem()
         if current is None:
-            return
+            row=view.currentRow()
+            column=view.currentColumn()
+            if row<0 or column<0:
+                return
+            current=QTableWidgetItem()
+            with QSignalBlocker(view):
+                view.setItem(row,column,current)
         value=self.formula_bar.text()
         row=current.row()
         column=current.column()
+        reference=f"{chr(65+column)}{row+1}"
+        sheet=self.workbook.sheets[index]
+        command=EditCellCommand(sheet,reference,value)
+        self.history.execute(command)
         with QSignalBlocker(view):
             current.setText(value)
-        sheet=self.workbook.sheets[index]
-        reference=f"{chr(65+column)}{row+1}"
-        sheet.set_cell(reference,value)
         self.status_label.setText(f"{reference} = {value}")
+    
+    def undo(self):
+        self.history.undo()
+        self.refresh_current_view()
+    
+    def redo(self):
+        self.history.redo()
+        self.refresh_current_view()
+    
+    def refresh_current_view(self):
+        index=self.sheet_tabs.currentIndex()
+        view=self.views[index]
+        sheet=self.workbook.sheets[index]
+        with QSignalBlocker(view):
+            for row in range(view.rowCount()):
+                for column in range(view.columnCount()):
+                    reference=f"{chr(65+column)}{row+1}"
+                    cell=sheet.get_cell(reference)
+                    if cell is None:
+                        view.takeItem(row,column)
+                    else:
+                        item=view.item(row,column)
+                        if item is None:
+                            item=QTableWidgetItem()
+                            view.setItem(row,column,item)
+                        item.setText(cell.value)
+        current=view.currentItem()
+        if current is not None:
+            self.handle_cell_selected(current.row(),current.column(),-1,-1)
