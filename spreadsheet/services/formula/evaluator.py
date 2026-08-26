@@ -1,12 +1,22 @@
 import math
-from .ast import NumberNode, CellNode, BinaryOperationNode, FunctionNode, RangeNode
+from .ast import (
+    NumberNode,
+    ErrorNode,
+    CellNode,
+    BinaryOperationNode,
+    FunctionNode,
+    RangeNode,
+)
 
 class Evaluator:
     def __init__(self, sheet=None, workbook=None):
         self.sheet = sheet
         self.workbook = workbook
+        self._evaluation_stack = []
 
     def evaluate(self,node):
+        if isinstance(node, ErrorNode):
+            return node.error
         if isinstance(node,NumberNode):
             return node.value
         if isinstance(node, CellNode):
@@ -16,25 +26,43 @@ class Evaluator:
         if isinstance(node,BinaryOperationNode):
             left=self.evaluate(node.left)
             right=self.evaluate(node.right)
+            if isinstance(left, str) and left.startswith("#"):
+                return left
+            
+            if isinstance(right, str) and right.startswith("#"):
+                return right
             if node.operator == "+":
-                return left + right
+                try:
+                    return left + right
+                except (TypeError, ValueError):
+                    return "#VALUE!"
             
             if node.operator == "-":
-                return left - right
+                try:
+                    return left - right
+                except (TypeError, ValueError):
+                    return "#VALUE!"
             
             if node.operator == "*":
-                return left * right
+                try:
+                    return left * right
+                except (TypeError, ValueError):
+                    return "#VALUE!"
             
             if node.operator == "/":
                 if right == 0:
-                    raise ZeroDivisionError(
-                        "Division by zero"
-                    )
+                    return "#DIV/0!"
             
-                return left / right
+                try:
+                    return left / right
+                except (TypeError, ValueError):
+                    return "#VALUE!"
             
             if node.operator == "^":
-                return left ** right
+                try:
+                    return left ** right
+                except (TypeError, ValueError):
+                    return "#VALUE!"
             
             if node.operator == "=":
                 return left == right
@@ -78,7 +106,38 @@ class Evaluator:
                 "Sheet is required for cell evaluation"
             )
     
-        cell = self.sheet.get_cell(reference)
+        stack_reference = reference
+    
+        if "!" in reference:
+            sheet_name, cell_reference = reference.rsplit(
+                "!",
+                1
+            )
+    
+            sheet_name = sheet_name.strip("'")
+    
+            if self.workbook is None:
+                return "#REF!"
+    
+            target_sheet = self.workbook.get_sheet(
+                sheet_name
+            )
+    
+            if target_sheet is None:
+                return "#REF!"
+    
+            stack_reference = (
+                f"{sheet_name}!{cell_reference}"
+            )
+    
+            cell = target_sheet.get_cell(
+                cell_reference
+            )
+        else:
+            cell = self.sheet.get_cell(reference)
+    
+        if stack_reference in self._evaluation_stack:
+            return "#CIRC!"
     
         if cell is None:
             return 0
@@ -89,13 +148,22 @@ class Evaluator:
             return value
     
         if not value.startswith("="):
-            return self.get_cell_value(reference)
+            return self.get_cell_value(
+                reference
+            )
     
         from .parser import Parser
     
-        node = Parser().parse(value)
+        self._evaluation_stack.append(
+            stack_reference
+        )
     
-        return self.evaluate(node)
+        try:
+            node = Parser().parse(value)
+            return self.evaluate(node)
+    
+        finally:
+            self._evaluation_stack.pop()
 
     def get_cell_value(self, reference):
         if self.sheet is None:
@@ -125,9 +193,7 @@ class Evaluator:
             )
     
             if target_sheet is None:
-                raise ValueError(
-                    f"Sheet not found: {sheet_name}"
-                )
+                return "#REF!"
     
         cell = target_sheet.get_cell(
             cell_reference
@@ -146,8 +212,18 @@ class Evaluator:
     
         if isinstance(value, str):
             if value.startswith("="):
+                if target_sheet is self.sheet:
+                    return self.evaluate_cell(
+                        cell_reference
+                    )
+        
+                qualified_reference = (
+                    f"'{target_sheet.name}'!"
+                    f"{cell_reference}"
+                )
+        
                 return self.evaluate_cell(
-                    cell_reference
+                    qualified_reference
                 )
         
             try:
@@ -172,9 +248,7 @@ class Evaluator:
             )
     
             if target_sheet is None:
-                raise ValueError(
-                    f"Sheet not found: {node.sheet_name}"
-                )
+                return "#REF!"
     
         start_column, start_row = self.split_reference(
             node.start.reference
@@ -233,85 +307,160 @@ class Evaluator:
     
         return values
   
-    def evaluate_function(self,node):
-        values=[]
+    def evaluate_function(self, node):
+        values = []
+    
         for argument in node.args:
-            result=self.evaluate(argument)
-            if isinstance(result,list):
+            result = self.evaluate(argument)
+    
+            if isinstance(result, str) and result.startswith("#"):
+                return result
+    
+            if isinstance(result, list):
+                for value in result:
+                    if isinstance(value, str) and value.startswith("#"):
+                        return value
+    
                 values.extend(result)
             else:
                 values.append(result)
-        name=node.name.upper()
-        if name=="SUM":
-            return sum(values)
-        if name=="AVERAGE":
+    
+        name = node.name.upper()
+    
+        if name == "SUM":
+            if any(
+                isinstance(value, str)
+                for value in values
+            ):
+                return "#VALUE!"
+    
+            try:
+                return sum(values)
+            except (TypeError, ValueError):
+                return "#VALUE!"
+    
+        if name == "AVERAGE":
             if not values:
-                raise ValueError("AVERAGE requires at least one value")
-            return sum(values)/len(values)
-        if name=="MIN":
+                return "#VALUE!"
+    
+            if any(
+                isinstance(value, str)
+                for value in values
+            ):
+                return "#VALUE!"
+    
+            try:
+                return sum(values) / len(values)
+            except (TypeError, ValueError, ZeroDivisionError):
+                return "#VALUE!"
+    
+        if name == "MIN":
             if not values:
-                raise ValueError("MIN requires at least one value")
-            return min(values)
-        if name=="MAX":
+                return "#VALUE!"
+    
+            if any(
+                isinstance(value, str)
+                for value in values
+            ):
+                return "#VALUE!"
+    
+            try:
+                return min(values)
+            except (TypeError, ValueError):
+                return "#VALUE!"
+    
+        if name == "MAX":
             if not values:
-                raise ValueError("MAX requires at least one value")
-            return max(values)
-        if name=="COUNT":
+                return "#VALUE!"
+    
+            if any(
+                isinstance(value, str)
+                for value in values
+            ):
+                return "#VALUE!"
+    
+            try:
+                return max(values)
+            except (TypeError, ValueError):
+                return "#VALUE!"
+    
+        if name == "COUNT":
             return len(values)
+    
         if name == "AND":
-            return all(values)
+            try:
+                return all(values)
+            except (TypeError, ValueError):
+                return "#VALUE!"
+    
         if name == "OR":
-            return any(values)
+            try:
+                return any(values)
+            except (TypeError, ValueError):
+                return "#VALUE!"
+    
         if name == "NOT":
             if len(values) != 1:
-                raise ValueError(
-                    "NOT requires exactly one value"
-                )
-        
+                return "#VALUE!"
+    
             return not values[0]
+    
         if name == "ABS":
             if len(values) != 1:
-                raise ValueError(
-                    "ABS requires exactly one value"
-                )
-        
-            return abs(values[0])
-        
+                return "#VALUE!"
+    
+            try:
+                return abs(values[0])
+            except (TypeError, ValueError):
+                return "#VALUE!"
+    
         if name == "ROUND":
             if len(values) not in (1, 2):
-                raise ValueError(
-                    "ROUND requires one or two values"
+                return "#VALUE!"
+    
+            if any(
+                isinstance(value, str)
+                for value in values
+            ):
+                return "#VALUE!"
+    
+            try:
+                digits = (
+                    int(values[1])
+                    if len(values) == 2
+                    else 0
                 )
-        
-            digits = (
-                int(values[1])
-                if len(values) == 2
-                else 0
-            )
-        
-            return round(values[0], digits)
-        
+    
+                return round(
+                    values[0],
+                    digits
+                )
+    
+            except (TypeError, ValueError):
+                return "#VALUE!"
+    
         if name == "INT":
             if len(values) != 1:
-                raise ValueError(
-                    "INT requires exactly one value"
-                )
-        
-            return math.floor(values[0])
-        
+                return "#VALUE!"
+    
+            try:
+                return math.floor(values[0])
+            except (TypeError, ValueError):
+                return "#VALUE!"
+    
         if name == "MOD":
             if len(values) != 2:
-                raise ValueError(
-                    "MOD requires exactly two values"
-                )
-        
+                return "#VALUE!"
+    
             if values[1] == 0:
-                raise ZeroDivisionError(
-                    "Division by zero"
-                )
-        
-            return values[0] % values[1]
-        raise ValueError(f"Unsupported function: {node.name}")
+                return "#DIV/0!"
+    
+            try:
+                return values[0] % values[1]
+            except (TypeError, ValueError):
+                return "#VALUE!"
+    
+        return "#NAME?"
     
     def split_reference(self,reference):
         import re

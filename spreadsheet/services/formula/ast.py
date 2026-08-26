@@ -1,3 +1,7 @@
+class ErrorNode:
+    def __init__(self, error):
+        self.error = error
+
 class NumberNode:
     def __init__(self,value):
         self.value=value
