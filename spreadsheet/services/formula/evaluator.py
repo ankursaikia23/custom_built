@@ -2,6 +2,7 @@ import math
 from .ast import (
     NumberNode,
     ErrorNode,
+    StringNode,
     CellNode,
     BinaryOperationNode,
     FunctionNode,
@@ -18,6 +19,8 @@ class Evaluator:
         if isinstance(node, ErrorNode):
             return node.error
         if isinstance(node,NumberNode):
+            return node.value
+        if isinstance(node,StringNode):
             return node.value
         if isinstance(node, CellNode):
             return self.get_cell_value(
@@ -307,20 +310,212 @@ class Evaluator:
     
         return values
   
-    def evaluate_function(self, node):
+    def evaluate_function(self,node):
+        name = node.name.upper()
+        if name in (
+            "CONCAT",
+            "CONCATENATE",
+            "LEFT",
+            "RIGHT",
+            "LEN",
+            "UPPER",
+            "LOWER",
+            "TRIM",
+        ):
+            values = []
+        
+            for argument in node.args:
+                if isinstance(argument, CellNode):
+                    reference = argument.reference
+                
+                    target_sheet = self.sheet
+                    cell_reference = reference
+                
+                    if "!" in reference:
+                        sheet_name, cell_reference = reference.rsplit(
+                            "!",
+                            1
+                        )
+                
+                        sheet_name = sheet_name.strip("'")
+                
+                        if self.workbook is None:
+                            raise ValueError(
+                                "Workbook is required for "
+                                "cross-sheet references"
+                            )
+                
+                        target_sheet = self.workbook.get_sheet(
+                            sheet_name
+                        )
+                
+                        if target_sheet is None:
+                            raise ValueError(
+                                f"Sheet not found: {sheet_name}"
+                            )
+                
+                    if target_sheet is None:
+                        raise ValueError(
+                            "Sheet is required for cell references"
+                        )
+                
+                    cell = target_sheet.get_cell(
+                        cell_reference
+                    )
+                
+                    if cell is None or cell.value in (None, ""):
+                        values.append("")
+                        continue
+        
+                result = self.evaluate(argument)
+        
+                if isinstance(result, list):
+                    values.extend(result)
+                else:
+                    values.append(result)
+        
+            if name == "CONCAT":
+                return "".join(
+                    str(value)
+                    for value in values
+                )
+        
+            if name == "CONCATENATE":
+                return "".join(
+                    str(value)
+                    for value in values
+                )
+        
+            if name == "LEFT":
+                if len(values) not in (1, 2):
+                    return "#VALUE!"
+        
+                text = str(values[0])
+        
+                try:
+                    count = (
+                        int(values[1])
+                        if len(values) == 2
+                        else 1
+                    )
+                except (TypeError, ValueError):
+                    return "#VALUE!"
+        
+                if count < 0:
+                    return "#VALUE!"
+        
+                return text[:count]
+        
+            if name == "RIGHT":
+                if len(values) not in (1, 2):
+                    return "#VALUE!"
+        
+                text = str(values[0])
+        
+                try:
+                    count = (
+                        int(values[1])
+                        if len(values) == 2
+                        else 1
+                    )
+                except (TypeError, ValueError):
+                    return "#VALUE!"
+        
+                if count < 0:
+                    return "#VALUE!"
+        
+                if count == 0:
+                    return ""
+        
+                return text[-count:]
+        
+            if name == "LEN":
+                if len(values) != 1:
+                    return "#VALUE!"
+        
+                return len(str(values[0]))
+        
+            if name == "UPPER":
+                if len(values) != 1:
+                    return "#VALUE!"
+        
+                return str(values[0]).upper()
+        
+            if name == "LOWER":
+                if len(values) != 1:
+                    return "#VALUE!"
+        
+                return str(values[0]).lower()
+        
+            if name == "TRIM":
+                if len(values) != 1:
+                    return "#VALUE!"
+        
+                return " ".join(
+                    str(values[0]).split()
+                )
+    
+        if name == "IF":
+            if len(node.args) not in (2, 3):
+                return "#VALUE!"
+    
+            condition = self.evaluate(
+                node.args[0]
+            )
+    
+            if (
+                isinstance(condition, str)
+                and condition.startswith("#")
+            ):
+                return condition
+    
+            if condition:
+                return self.evaluate(
+                    node.args[1]
+                )
+    
+            if len(node.args) == 3:
+                return self.evaluate(
+                    node.args[2]
+                )
+    
+            return False
+    
+        if name == "IFS":
+            if len(node.args) == 0:
+                return "#VALUE!"
+    
+            if len(node.args) % 2 != 0:
+                return "#VALUE!"
+    
+            for index in range(
+                0,
+                len(node.args),
+                2
+            ):
+                condition = self.evaluate(
+                    node.args[index]
+                )
+    
+                if (
+                    isinstance(condition, str)
+                    and condition.startswith("#")
+                ):
+                    return condition
+    
+                if condition:
+                    return self.evaluate(
+                        node.args[index + 1]
+                    )
+    
+            return "#VALUE!"
+    
         values = []
     
         for argument in node.args:
             result = self.evaluate(argument)
     
-            if isinstance(result, str) and result.startswith("#"):
-                return result
-    
             if isinstance(result, list):
-                for value in result:
-                    if isinstance(value, str) and value.startswith("#"):
-                        return value
-    
                 values.extend(result)
             else:
                 values.append(result)
@@ -404,6 +599,27 @@ class Evaluator:
                 return "#VALUE!"
     
             return not values[0]
+        
+        if name == "TRUE":
+            if len(values) != 0:
+                return "#VALUE!"
+        
+            return True
+        
+        if name == "FALSE":
+            if len(values) != 0:
+                return "#VALUE!"
+        
+            return False
+        
+        if name == "XOR":
+            if not values:
+                return "#VALUE!"
+        
+            return sum(
+                bool(value)
+                for value in values
+            ) % 2 == 1
     
         if name == "ABS":
             if len(values) != 1:
@@ -459,7 +675,87 @@ class Evaluator:
                 return values[0] % values[1]
             except (TypeError, ValueError):
                 return "#VALUE!"
-    
+            
+        if name == "CONCAT":
+            return "".join(
+                str(value)
+                for value in values
+            )
+        
+        if name == "CONCATENATE":
+            return "".join(
+                str(value)
+                for value in values
+            )
+        
+        if name == "LEFT":
+            if len(values) not in (1, 2):
+                return "#VALUE!"
+        
+            text = str(values[0])
+        
+            try:
+                count = (
+                    int(values[1])
+                    if len(values) == 2
+                    else 1
+                )
+            except (TypeError, ValueError):
+                return "#VALUE!"
+        
+            if count < 0:
+                return "#VALUE!"
+        
+            return text[:count]
+        
+        if name == "RIGHT":
+            if len(values) not in (1, 2):
+                return "#VALUE!"
+        
+            text = str(values[0])
+        
+            try:
+                count = (
+                    int(values[1])
+                    if len(values) == 2
+                    else 1
+                )
+            except (TypeError, ValueError):
+                return "#VALUE!"
+        
+            if count < 0:
+                return "#VALUE!"
+        
+            if count == 0:
+                return ""
+        
+            return text[-count:]
+        
+        if name == "LEN":
+            if len(values) != 1:
+                return "#VALUE!"
+        
+            return len(str(values[0]))
+        
+        if name == "UPPER":
+            if len(values) != 1:
+                return "#VALUE!"
+        
+            return str(values[0]).upper()
+        
+        if name == "LOWER":
+            if len(values) != 1:
+                return "#VALUE!"
+        
+            return str(values[0]).lower()
+        
+        if name == "TRIM":
+            if len(values) != 1:
+                return "#VALUE!"
+        
+            return " ".join(
+                str(values[0]).split()
+            )    
         return "#NAME?"
     
     def split_reference(self,reference):

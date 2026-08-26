@@ -6,6 +6,10 @@ class NumberNode:
     def __init__(self,value):
         self.value=value
         
+class StringNode:
+    def __init__(self, value):
+        self.value = value
+        
 class CellNode:
     def __init__(self,reference):
         self.reference=reference

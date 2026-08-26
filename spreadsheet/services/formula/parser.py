@@ -1,10 +1,11 @@
 from .tokenizer import Tokenizer
 from .ast import (
     NumberNode,
+    StringNode,
     CellNode,
     BinaryOperationNode,
     FunctionNode,
-    RangeNode,
+    RangeNode
 )
 
 class Parser:
@@ -138,6 +139,18 @@ class Parser:
             )
 
             return NumberNode(value)
+        
+        if token.type == "STRING":
+            self.advance()
+        
+            value = token.value[1:-1]
+        
+            value = value.replace(
+                '""',
+                '"'
+            )
+        
+            return StringNode(value)
 
         if token.type in ("CELL", "SHEET_CELL"):
             self.advance()
