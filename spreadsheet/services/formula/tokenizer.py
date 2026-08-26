@@ -11,7 +11,7 @@ class Token:
 class Tokenizer:
     TOKEN_SPECIFICATION = [
         ("NUMBER", r"\d+(?:\.\d+)?"),
-        ("SHEET_CELL", r"'[^']+'![A-Za-z]+\$?\d+|[A-Za-z_][A-Za-z0-9_ ]*![A-Za-z]+\$?\d+"),
+        ("SHEET_CELL", r"'[^']+'!\$?[A-Za-z]+\$?\d+|[A-Za-z_][A-Za-z0-9_ ]*!\$?[A-Za-z]+\$?\d+"),
         ("STRING", r'"(?:[^"]|"")*"'),
         ("CELL", r"\$?[A-Za-z]+\$?\d+"),
         ("FUNCTION", r"[A-Za-z_][A-Za-z0-9_]*"),
