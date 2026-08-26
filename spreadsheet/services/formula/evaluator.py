@@ -1,3 +1,4 @@
+import math
 from .ast import NumberNode, CellNode, BinaryOperationNode, FunctionNode, RangeNode
 
 class Evaluator:
@@ -12,18 +13,43 @@ class Evaluator:
         if isinstance(node,BinaryOperationNode):
             left=self.evaluate(node.left)
             right=self.evaluate(node.right)
-            if node.operator=="+":
-                return left+right
-            if node.operator=="-":
-                return left-right
-            if node.operator=="*":
-                return left*right
-            if node.operator=="/":
-                if right==0:
-                    raise ZeroDivisionError("Division by zero")
-                return left/right
-            if node.operator=="^":
-                return left**right
+            if node.operator == "+":
+                return left + right
+            
+            if node.operator == "-":
+                return left - right
+            
+            if node.operator == "*":
+                return left * right
+            
+            if node.operator == "/":
+                if right == 0:
+                    raise ZeroDivisionError(
+                        "Division by zero"
+                    )
+            
+                return left / right
+            
+            if node.operator == "^":
+                return left ** right
+            
+            if node.operator == "=":
+                return left == right
+            
+            if node.operator == "<>":
+                return left != right
+            
+            if node.operator == ">":
+                return left > right
+            
+            if node.operator == "<":
+                return left < right
+            
+            if node.operator == ">=":
+                return left >= right
+            
+            if node.operator == "<=":
+                return left <= right
             raise ValueError(f"Unsupported operator: {node.operator}")
         if isinstance(node,RangeNode):
             return self.get_range_values(node)
@@ -77,6 +103,59 @@ class Evaluator:
             return max(values)
         if name=="COUNT":
             return len(values)
+        if name == "AND":
+            return all(values)
+        if name == "OR":
+            return any(values)
+        if name == "NOT":
+            if len(values) != 1:
+                raise ValueError(
+                    "NOT requires exactly one value"
+                )
+        
+            return not values[0]
+        if name == "ABS":
+            if len(values) != 1:
+                raise ValueError(
+                    "ABS requires exactly one value"
+                )
+        
+            return abs(values[0])
+        
+        if name == "ROUND":
+            if len(values) not in (1, 2):
+                raise ValueError(
+                    "ROUND requires one or two values"
+                )
+        
+            digits = (
+                int(values[1])
+                if len(values) == 2
+                else 0
+            )
+        
+            return round(values[0], digits)
+        
+        if name == "INT":
+            if len(values) != 1:
+                raise ValueError(
+                    "INT requires exactly one value"
+                )
+        
+            return math.floor(values[0])
+        
+        if name == "MOD":
+            if len(values) != 2:
+                raise ValueError(
+                    "MOD requires exactly two values"
+                )
+        
+            if values[1] == 0:
+                raise ZeroDivisionError(
+                    "Division by zero"
+                )
+        
+            return values[0] % values[1]
         raise ValueError(f"Unsupported function: {node.name}")
     
     def split_reference(self,reference):
