@@ -2,14 +2,17 @@ import math
 from .ast import NumberNode, CellNode, BinaryOperationNode, FunctionNode, RangeNode
 
 class Evaluator:
-    def __init__(self,sheet=None):
-        self.sheet=sheet
+    def __init__(self, sheet=None, workbook=None):
+        self.sheet = sheet
+        self.workbook = workbook
 
     def evaluate(self,node):
         if isinstance(node,NumberNode):
             return node.value
-        if isinstance(node,CellNode):
-            return self.get_cell_value(node.reference)
+        if isinstance(node, CellNode):
+            return self.get_cell_value(
+                node.reference
+            )
         if isinstance(node,BinaryOperationNode):
             left=self.evaluate(node.left)
             right=self.evaluate(node.right)
@@ -39,43 +42,195 @@ class Evaluator:
             if node.operator == "<>":
                 return left != right
             
-            if node.operator == ">":
-                return left > right
+            if node.operator in (
+                ">",
+                "<",
+                ">=",
+                "<=",
+            ):
+                if isinstance(left, bool) or isinstance(right, bool):
+                    raise ValueError(
+                        "Boolean values only support "
+                        "equality comparisons"
+                    )
             
-            if node.operator == "<":
-                return left < right
+                if node.operator == ">":
+                    return left > right
             
-            if node.operator == ">=":
-                return left >= right
+                if node.operator == "<":
+                    return left < right
             
-            if node.operator == "<=":
-                return left <= right
+                if node.operator == ">=":
+                    return left >= right
+            
+                if node.operator == "<=":
+                    return left <= right
             raise ValueError(f"Unsupported operator: {node.operator}")
         if isinstance(node,RangeNode):
             return self.get_range_values(node)
         if isinstance(node,FunctionNode):
             return self.evaluate_function(node)
         raise ValueError(f"Unsupported node: {type(node).__name__}")
-
-    def get_cell_value(self,reference):
+        
+    def evaluate_cell(self, reference):
         if self.sheet is None:
-            raise ValueError("Sheet is required for cell references")
-        cell=self.sheet.get_cell(reference)
-        if cell is None or cell.value in (None,""):
+            raise ValueError(
+                "Sheet is required for cell evaluation"
+            )
+    
+        cell = self.sheet.get_cell(reference)
+    
+        if cell is None:
             return 0
-        try:
-            return float(cell.value)
-        except (TypeError,ValueError):
-            raise ValueError(f"Cell {reference} does not contain a numeric value")
+    
+        value = cell.value
+    
+        if not isinstance(value, str):
+            return value
+    
+        if not value.startswith("="):
+            return self.get_cell_value(reference)
+    
+        from .parser import Parser
+    
+        node = Parser().parse(value)
+    
+        return self.evaluate(node)
 
-    def get_range_values(self,node):
-        start_column,start_row=self.split_reference(node.start.reference)
-        end_column,end_row=self.split_reference(node.end.reference)
-        values=[]
-        for row in range(start_row,end_row+1):
-            for column in range(start_column,end_column+1):
-                reference=f"{self.column_name(column)}{row}"
-                values.append(self.get_cell_value(reference))
+    def get_cell_value(self, reference):
+        if self.sheet is None:
+            raise ValueError(
+                "Sheet is required for cell references"
+            )
+    
+        target_sheet = self.sheet
+        cell_reference = reference
+    
+        if "!" in reference:
+            sheet_name, cell_reference = reference.rsplit(
+                "!",
+                1
+            )
+    
+            sheet_name = sheet_name.strip("'")
+    
+            if self.workbook is None:
+                raise ValueError(
+                    "Workbook is required for "
+                    "cross-sheet references"
+                )
+    
+            target_sheet = self.workbook.get_sheet(
+                sheet_name
+            )
+    
+            if target_sheet is None:
+                raise ValueError(
+                    f"Sheet not found: {sheet_name}"
+                )
+    
+        cell = target_sheet.get_cell(
+            cell_reference
+        )
+    
+        if cell is None or cell.value in (None, ""):
+            return 0
+    
+        value = cell.value
+    
+        if isinstance(value, bool):
+            return value
+    
+        if isinstance(value, (int, float)):
+            return value
+    
+        if isinstance(value, str):
+            if value.startswith("="):
+                return self.evaluate_cell(
+                    cell_reference
+                )
+        
+            try:
+                return float(value)
+            except ValueError:
+                return value
+    
+        return value
+
+    def get_range_values(self, node):
+        target_sheet = self.sheet
+    
+        if node.sheet_name is not None:
+            if self.workbook is None:
+                raise ValueError(
+                    "Workbook is required for "
+                    "cross-sheet ranges"
+                )
+    
+            target_sheet = self.workbook.get_sheet(
+                node.sheet_name
+            )
+    
+            if target_sheet is None:
+                raise ValueError(
+                    f"Sheet not found: {node.sheet_name}"
+                )
+    
+        start_column, start_row = self.split_reference(
+            node.start.reference
+        )
+    
+        end_column, end_row = self.split_reference(
+            node.end.reference
+        )
+    
+        values = []
+    
+        for row in range(
+            start_row,
+            end_row + 1
+        ):
+            for column in range(
+                start_column,
+                end_column + 1
+            ):
+                reference = (
+                    f"{self.column_name(column)}{row}"
+                )
+    
+                cell = target_sheet.get_cell(
+                    reference
+                )
+    
+                if (
+                    cell is None
+                    or cell.value in (None, "")
+                ):
+                    values.append(0)
+                    continue
+    
+                value = cell.value
+    
+                if isinstance(value, bool):
+                    values.append(value)
+                    continue
+    
+                if isinstance(value, (int, float)):
+                    values.append(value)
+                    continue
+    
+                if isinstance(value, str):
+                    try:
+                        values.append(float(value))
+                    except ValueError:
+                        raise ValueError(
+                            f"Cell {reference} does not "
+                            "contain a numeric value"
+                        )
+                    continue
+    
+                values.append(value)
+    
         return values
   
     def evaluate_function(self,node):

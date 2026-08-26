@@ -18,6 +18,7 @@ class FunctionNode:
         self.args=args
 
 class RangeNode:
-    def __init__(self,start,end):
+    def __init__(self,start,end,sheet_name=None):
         self.start=start
         self.end=end
+        self.sheet_name=sheet_name

@@ -7,7 +7,6 @@ from .ast import (
     RangeNode,
 )
 
-
 class Parser:
     def parse(self, formula):
         self.tokens = Tokenizer().tokenize(formula)
@@ -140,17 +139,53 @@ class Parser:
 
             return NumberNode(value)
 
-        if token.type == "CELL":
+        if token.type in ("CELL", "SHEET_CELL"):
             self.advance()
-
+        
+            if token.type == "SHEET_CELL":
+                if (
+                    self.current()
+                    and self.current().type == "COLON"
+                ):
+                    sheet_reference = token.value
+        
+                    self.advance()
+        
+                    end = self.advance()
+        
+                    if (
+                        end is None
+                        or end.type != "CELL"
+                    ):
+                        raise ValueError(
+                            "Invalid cross-sheet range"
+                        )
+        
+                    sheet_name, start_reference = (
+                        sheet_reference.rsplit(
+                            "!",
+                            1
+                        )
+                    )
+        
+                    sheet_name = sheet_name.strip("'")
+        
+                    return RangeNode(
+                        CellNode(start_reference),
+                        CellNode(end.value),
+                        sheet_name,
+                    )
+        
+                return CellNode(token.value)
+        
             if (
                 self.current()
                 and self.current().type == "COLON"
             ):
                 self.advance()
-
+        
                 end = self.advance()
-
+        
                 if (
                     end is None
                     or end.type != "CELL"
@@ -158,12 +193,12 @@ class Parser:
                     raise ValueError(
                         "Invalid range"
                     )
-
+        
                 return RangeNode(
                     CellNode(token.value),
                     CellNode(end.value),
                 )
-
+        
             return CellNode(token.value)
 
         if token.type == "FUNCTION":
