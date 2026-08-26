@@ -297,13 +297,31 @@ class Evaluator:
                     continue
     
                 if isinstance(value, str):
+                    if value.startswith("="):
+                        if target_sheet is self.sheet:
+                            result = self.evaluate_cell(reference)
+                        else:
+                            qualified_reference = (
+                                f"'{target_sheet.name}'!"
+                                f"{reference}"
+                            )
+                            result = self.evaluate_cell(
+                                qualified_reference
+                            )
+                
+                        if (
+                            isinstance(result, str)
+                            and result.startswith("#")
+                        ):
+                            return result
+                
+                        values.append(result)
+                        continue
+                
                     try:
                         values.append(float(value))
                     except ValueError:
-                        raise ValueError(
-                            f"Cell {reference} does not "
-                            "contain a numeric value"
-                        )
+                        values.append(value)
                     continue
     
                 values.append(value)
@@ -322,6 +340,13 @@ class Evaluator:
             "LOWER",
             "TRIM",
         ):
+            name = node.name.upper()
+            for argument in node.args:
+                if isinstance(argument, CellNode):
+                    value = self.get_cell_value(argument.reference)
+            
+                    if isinstance(value, str) and value.startswith("#"):
+                        return value
             values = []
         
             for argument in node.args:
@@ -521,6 +546,12 @@ class Evaluator:
                 values.append(result)
     
         name = node.name.upper()
+        for value in values:
+            if (
+                isinstance(value, str)
+                and value.startswith("#")
+            ):
+                return value
     
         if name == "SUM":
             if any(
