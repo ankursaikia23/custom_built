@@ -1,18 +1,26 @@
-from .base import Command
-
-class EditCellCommand(Command):
-    def __init__(self,sheet,reference,new_value):
-        self.sheet=sheet
-        self.reference=reference
-        self.new_value=new_value
-        cell=sheet.get_cell(reference)
-        self.old_value=cell.value if cell else None
+class EditCellCommand:
+    
+    def __init__(self, sheet, reference, value):
+        self.sheet = sheet
+        self.reference = reference
+        self.value = value
+        self.old_value = None
+        self.had_old_cell = False
 
     def execute(self):
-        self.sheet.set_cell(self.reference,self.new_value)
+        cell = self.sheet.get_cell(self.reference)
+
+        if cell is None:
+            self.had_old_cell = False
+            self.old_value = None
+        else:
+            self.had_old_cell = True
+            self.old_value = cell.value
+
+        self.sheet.set_cell(self.reference, self.value)
 
     def undo(self):
-        if self.old_value is None:
-            self.sheet.cells.pop(self.reference,None)
+        if self.had_old_cell:
+            self.sheet.set_cell(self.reference, self.old_value)
         else:
-            self.sheet.set_cell(self.reference,self.old_value)
+            self.sheet.delete_cell(self.reference)
