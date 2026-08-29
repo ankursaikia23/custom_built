@@ -1,9 +1,13 @@
 from core.sheet import Sheet
+from services.formula.recalculation import RecalculationManager
 
 class Workbook:
     def __init__(self):
-        self.sheets=[]
-        self.active_sheet_index=0
+        self.sheets = []
+        self.active_sheet_index = 0
+        self.recalculation_manager = RecalculationManager(
+            workbook=self
+        )
 
     def add_sheet(self,name):
         self.validate_sheet_name(name)

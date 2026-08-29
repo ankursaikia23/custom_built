@@ -115,6 +115,30 @@ class RecalculationManager:
     # ==================================================
     # Recalculation
     # ==================================================
+    
+    def recalculate_from(self, reference, sheet=None):
+        if sheet is None:
+            sheet = self.sheet
+    
+        if sheet is None:
+            raise ValueError(
+                "Sheet is required for recalculation"
+            )
+    
+        qualified_reference = (
+            f"{sheet.name}!{reference}"
+        )
+    
+        dependents = self.graph.get_dependents(
+            qualified_reference
+        )
+    
+        if not dependents:
+            return
+    
+        self.recalculate(
+            dependents
+        )
 
     def recalculate(self, cell):
 
@@ -159,6 +183,24 @@ class RecalculationManager:
                     sheet=target_sheet,
                     workbook=self.workbook
                 )
+                print("RECALC REFERENCE:", reference)
+                print("TARGET SHEET:", target_sheet.name)
+                print("TARGET CELL:", cell_reference)
+                print("FORMULA:", target_cell.value)
+                
+                if "!" in target_cell.value:
+                    print(
+                        "SOURCE VALUE:",
+                        self.workbook.get_sheet("Sheet1")
+                        .get_cell("A1")
+                        .value
+                    )
+                
+                result = evaluator.evaluate_cell(
+                    cell_reference
+                )
+                
+                print("EVALUATOR RESULT:", result)
 
                 result = evaluator.evaluate_cell(
                     cell_reference
