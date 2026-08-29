@@ -10,21 +10,21 @@ class History:
 
     def undo(self):
         if not self.undo_stack:
-            return False
-
+            return None
+    
         command = self.undo_stack.pop()
         command.undo()
         self.redo_stack.append(command)
-        return True
+        return command
 
     def redo(self):
         if not self.redo_stack:
-            return False
-
+            return None
+    
         command = self.redo_stack.pop()
         command.execute()
         self.undo_stack.append(command)
-        return True
+        return command
 
     def can_undo(self):
         return bool(self.undo_stack)

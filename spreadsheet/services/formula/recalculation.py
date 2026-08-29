@@ -147,62 +147,71 @@ class RecalculationManager:
         order = self.get_recalculation_order(
             cell
         )
-
-        results = {}
-
+    
+        # The edited cell itself must also be recalculated.
+        recalculation_order = [cell]
+    
         for reference in order:
-
+            if reference != cell:
+                recalculation_order.append(
+                    reference
+                )
+    
+        results = {}
+    
+        for reference in recalculation_order:
+    
             target_sheet, cell_reference = (
                 self._get_target_cell(
                     reference
                 )
             )
-
+    
             if target_sheet is None:
                 results[reference] = "#REF!"
                 continue
-
+    
             target_cell = (
                 target_sheet.get_cell(
                     cell_reference
                 )
             )
-
+    
             if target_cell is None:
                 continue
-
+    
             formula = target_cell.value
-
+    
             if (
                 not isinstance(formula, str)
                 or not formula.startswith("=")
             ):
                 continue
-
+    
             try:
                 evaluator = Evaluator(
                     sheet=target_sheet,
                     workbook=self.workbook
                 )
-
+    
                 result = evaluator.evaluate_cell(
                     cell_reference
                 )
-
+    
             except ZeroDivisionError:
                 result = "#DIV/0!"
-
+    
             except (
                 TypeError,
                 ValueError
             ):
                 result = "#VALUE!"
-
+    
             except Exception:
                 result = "#VALUE!"
-
+    
             target_cell.calculated_value = result
-
+    
             results[reference] = result
-
+    
         return results

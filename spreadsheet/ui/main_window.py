@@ -52,36 +52,171 @@ class MainWindow(QMainWindow):
     def handle_cell_changed(self, row, column):
         index = self.sheet_tabs.currentIndex()
         sheet = self.workbook.sheets[index]
-        reference = f"{chr(65 + column)}{row + 1}"    
-        item = self.views[index].item(row, column)
-        value = item.text() if item else ""
+    
+        reference = (
+            f"{chr(65 + column)}"
+            f"{row + 1}"
+        )
+    
+        item = self.views[index].item(
+            row,
+            column
+        )
+    
+        value = (
+            item.text()
+            if item
+            else ""
+        )
+    
         command = EditCellCommand(
             sheet,
             reference,
             value
         )
-        self.history.execute(command)
-        if (
-            isinstance(value, str)
-            and value.startswith("=")
-        ):
-            evaluator = self.workbook.recalculation_manager.evaluator
-            evaluator.sheet = sheet
-            evaluator.workbook = self.workbook
-            cell = sheet.get_cell(reference)
-            if cell is not None:
-                cell.calculated_value = evaluator.evaluate_cell(
-                    reference
-                )
-        self.workbook.recalculation_manager.recalculate_from(
-            reference,
-            sheet=sheet
+    
+        self.history.execute(
+            command
         )
-        self.refresh_current_view()
-        self.formula_bar.setText(value)
+    
+        # ==============================================
+        # Refresh affected sheets
+        # ==============================================
+    
+        results = (
+            self.workbook
+            .recalculation_manager
+            .recalculate_from(
+                reference,
+                sheet=sheet
+            )
+        )
+    
+        affected_sheets = {
+            sheet
+        }
+    
+        for qualified_reference in results:
+    
+            if "!" not in qualified_reference:
+                continue
+    
+            sheet_name = (
+                qualified_reference
+                .rsplit("!", 1)[0]
+                .strip("'")
+            )
+    
+            target_sheet = (
+                self.workbook.get_sheet(
+                    sheet_name
+                )
+            )
+    
+            if target_sheet is not None:
+                affected_sheets.add(
+                    target_sheet
+                )
+    
+        for affected_sheet in affected_sheets:
+    
+            affected_index = (
+                self.workbook.sheets.index(
+                    affected_sheet
+                )
+            )
+    
+            self.refresh_view(
+                affected_index
+            )
+    
+        # ==============================================
+        # Restore formula bar
+        # ==============================================
+    
+        self.formula_bar.setText(
+            value
+        )
+    
         self.status_label.setText(
             f"{reference} = {value}"
         )
+    
+    def refresh_view(self, index):
+        view = self.views[index]
+        sheet = self.workbook.sheets[index]
+    
+        with QSignalBlocker(view):
+    
+            for row in range(
+                view.rowCount()
+            ):
+    
+                for column in range(
+                    view.columnCount()
+                ):
+    
+                    reference = (
+                        f"{chr(65 + column)}"
+                        f"{row + 1}"
+                    )
+    
+                    cell = sheet.get_cell(
+                        reference
+                    )
+    
+                    if cell is None:
+    
+                        view.takeItem(
+                            row,
+                            column
+                        )
+    
+                        continue
+    
+                    item = view.item(
+                        row,
+                        column
+                    )
+    
+                    if item is None:
+    
+                        item = QTableWidgetItem()
+    
+                        view.setItem(
+                            row,
+                            column,
+                            item
+                        )
+    
+                    if (
+                        isinstance(
+                            cell.value,
+                            str
+                        )
+                        and cell.value.startswith("=")
+                    ):
+    
+                        if (
+                            cell.calculated_value
+                            is not None
+                        ):
+    
+                            item.setText(
+                                str(
+                                    cell.calculated_value
+                                )
+                            )
+    
+                        else:
+    
+                            item.setText("")
+    
+                    else:
+    
+                        item.setText(
+                            str(cell.value)
+                        )
     
     def handle_cell_selected(
         self,
@@ -148,25 +283,6 @@ class MainWindow(QMainWindow):
             value
         )
         self.history.execute(command)
-        if (
-            isinstance(value, str)
-            and value.startswith("=")
-        ):
-            evaluator = Evaluator(
-                sheet=sheet,
-                workbook=self.workbook
-            )    
-            cell = sheet.get_cell(reference)
-            if cell is not None:
-                cell.calculated_value = (
-                    evaluator.evaluate_cell(
-                        reference
-                    )
-                )
-        self.workbook.recalculation_manager.recalculate_from(
-            reference,
-            sheet=sheet
-        )
         self.refresh_current_view()
         self.status_label.setText(
             f"{reference} = {value}"
@@ -202,11 +318,34 @@ class MainWindow(QMainWindow):
             )
     
     def undo(self):
-        self.history.undo()
+        if not self.history.undo():
+            return
+    
+        index = self.sheet_tabs.currentIndex()
+        sheet = self.workbook.sheets[index]
+    
+        # Recalculate the edited cell and all dependent cells.
+        self.workbook.recalculation_manager.recalculate_from(
+            self.history.redo_stack[-1].reference,
+            sheet=sheet
+        )
+    
         self.refresh_current_view()
     
+    
     def redo(self):
-        self.history.redo()
+        if not self.history.redo():
+            return
+    
+        index = self.sheet_tabs.currentIndex()
+        sheet = self.workbook.sheets[index]
+    
+        # Recalculate the edited cell and all dependent cells.
+        self.workbook.recalculation_manager.recalculate_from(
+            self.history.undo_stack[-1].reference,
+            sheet=sheet
+        )
+    
         self.refresh_current_view()
     
     def refresh_current_view(self):

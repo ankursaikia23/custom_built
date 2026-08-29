@@ -8,7 +8,6 @@ from .ast import (
     RangeNode,
 )
 
-
 class DependencyAnalyzer:
     def get_dependencies(self, node):
         dependencies = set()
@@ -16,59 +15,93 @@ class DependencyAnalyzer:
         return dependencies
 
     def _collect(self, node, dependencies):
-        if isinstance(node, (
-            NumberNode,
-            ErrorNode,
-            StringNode,
-        )):
+        if isinstance(
+            node,
+            (
+                NumberNode,
+                ErrorNode,
+                StringNode,
+            )
+        ):
             return
 
         if isinstance(node, CellNode):
+
             dependencies.add(
                 self._normalize_cell_reference(
                     node.reference
                 )
             )
+
             return
 
         if isinstance(node, RangeNode):
-            dependencies.add(
-                self._normalize_range_reference(
+
+            dependencies.update(
+                self._expand_range_reference(
                     node
                 )
             )
+
             return
 
-        if isinstance(node, BinaryOperationNode):
+        if isinstance(
+            node,
+            BinaryOperationNode
+        ):
+
             self._collect(
                 node.left,
                 dependencies
             )
+
             self._collect(
                 node.right,
                 dependencies
             )
+
             return
 
-        if isinstance(node, FunctionNode):
+        if isinstance(
+            node,
+            FunctionNode
+        ):
+
             for argument in node.args:
+
                 self._collect(
                     argument,
                     dependencies
                 )
+
             return
 
         raise ValueError(
-            f"Unsupported node: {type(node).__name__}"
+            f"Unsupported node: "
+            f"{type(node).__name__}"
         )
 
-    def _normalize_cell_reference(self, reference):
+    # ==================================================
+    # Cell reference normalization
+    # ==================================================
+
+    def _normalize_cell_reference(
+        self,
+        reference
+    ):
+
         if "!" in reference:
+
             sheet_name, cell_reference = (
-                reference.rsplit("!", 1)
+                reference.rsplit(
+                    "!",
+                    1
+                )
             )
 
-            sheet_name = sheet_name.strip("'")
+            sheet_name = (
+                sheet_name.strip("'")
+            )
 
             return (
                 f"{sheet_name}!"
@@ -77,16 +110,128 @@ class DependencyAnalyzer:
 
         return reference
 
-    def _normalize_range_reference(self, node):
-        start = node.start.reference
-        end = node.end.reference
+    # ==================================================
+    # Range expansion
+    # ==================================================
 
-        if node.sheet_name is not None:
-            sheet_name = node.sheet_name.strip("'")
+    def _expand_range_reference(
+        self,
+        node
+    ):
 
-            return (
-                f"{sheet_name}!"
-                f"{start}:{end}"
+        start_column, start_row = (
+            self._split_reference(
+                node.start.reference
+            )
+        )
+
+        end_column, end_row = (
+            self._split_reference(
+                node.end.reference
+            )
+        )
+
+        dependencies = set()
+
+        sheet_name = node.sheet_name
+
+        if sheet_name is not None:
+            sheet_name = (
+                sheet_name.strip("'")
             )
 
-        return f"{start}:{end}"
+        for row in range(
+            start_row,
+            end_row + 1
+        ):
+
+            for column in range(
+                start_column,
+                end_column + 1
+            ):
+
+                reference = (
+                    f"{self._column_name(column)}"
+                    f"{row}"
+                )
+
+                if sheet_name is not None:
+
+                    dependencies.add(
+                        f"{sheet_name}!"
+                        f"{reference}"
+                    )
+
+                else:
+
+                    dependencies.add(
+                        reference
+                    )
+
+        return dependencies
+
+    # ==================================================
+    # Reference utilities
+    # ==================================================
+
+    def _split_reference(
+        self,
+        reference
+    ):
+
+        import re
+
+        match = re.fullmatch(
+            r"\$?([A-Za-z]+)\$?(\d+)",
+            reference.strip()
+        )
+
+        if not match:
+            raise ValueError(
+                f"Invalid cell reference: "
+                f"{reference}"
+            )
+
+        letters = (
+            match.group(1).upper()
+        )
+
+        row = int(
+            match.group(2)
+        )
+
+        column = 0
+
+        for letter in letters:
+
+            column = (
+                column * 26
+                + ord(letter)
+                - 64
+            )
+
+        return (
+            column,
+            row
+        )
+
+    def _column_name(
+        self,
+        column
+    ):
+
+        result = ""
+
+        while column:
+
+            column, remainder = divmod(
+                column - 1,
+                26
+            )
+
+            result = (
+                chr(65 + remainder)
+                + result
+            )
+
+        return result
