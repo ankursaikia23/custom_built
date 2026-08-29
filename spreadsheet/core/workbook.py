@@ -13,7 +13,7 @@ class Workbook:
         self.validate_sheet_name(name)
         if self.get_sheet(name) is not None:
             raise ValueError("Sheet name already exists")
-        sheet=Sheet(name)
+        sheet = Sheet(name, workbook=self)
         self.sheets.append(sheet)
         if len(self.sheets)==1:
             self.active_sheet_index=0
@@ -29,6 +29,21 @@ class Workbook:
         if not self.sheets:
             return None
         return self.sheets[self.active_sheet_index]
+    
+    def set_cell_value(self, sheet_name, reference, value):
+        sheet = self.get_sheet(sheet_name)
+        if sheet is None:
+            raise ValueError(
+                f"Sheet not found: {sheet_name}"
+            )    
+        cell = sheet.set_cell(
+            reference,
+            value
+        )
+        self.recalculation_manager.recalculate(
+            f"{sheet_name}!{reference}"
+        )
+        return cell
 
     def set_active_sheet(self,name):
         for index,sheet in enumerate(self.sheets):

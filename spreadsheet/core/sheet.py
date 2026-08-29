@@ -1,9 +1,10 @@
 from core.cell import Cell
 
 class Sheet:
-    def __init__(self,name):
-        self.name=name
-        self.cells={}
+    def __init__(self, name, workbook=None):
+        self.name = name
+        self.workbook = workbook
+        self.cells = {}
         self.default_row_height=20
         self.default_column_width=80
         self.row_heights={}
@@ -12,18 +13,35 @@ class Sheet:
         self.hidden_columns=set()
         self.merged_ranges=[]
 
-    def set_cell(self,reference,value):
+    def set_cell(self, reference, value):
+        reference = self._normalize_reference(reference)
         if reference not in self.cells:
-            self.cells[reference]=Cell(reference,value)
+            self.cells[reference] = Cell(
+                reference,
+                value
+            )
         else:
-            self.cells[reference].value=value
+            cell = self.cells[reference]
+            cell.value = value
+            cell.calculated_value = None
+
+        if self.workbook is not None:
+            qualified_reference = (
+                f"{self.name}!{reference}"
+            )
+            self.workbook.recalculation_manager.register_formula(
+                qualified_reference,
+                value
+            )
         return self.cells[reference]
-
-    def get_cell(self,reference):
+    
+    def get_cell(self, reference):
+        reference = self._normalize_reference(reference)
         return self.cells.get(reference)
-
-    def delete_cell(self,reference):
-        return self.cells.pop(reference,None)
+    
+    def delete_cell(self, reference):
+        reference = self._normalize_reference(reference)
+        return self.cells.pop(reference, None)
 
     def set_row_height(self,row,height):
         if row<1:
@@ -309,12 +327,37 @@ class Sheet:
                 new_merges.append((f"{self.column_name(start_column_number)}{start_row}",f"{self.column_name(end_column_number)}{end_row}"))
         self.merged_ranges=new_merges
 
-    def split_reference(self,reference):
+    def split_reference(self, reference):
         import re
-        match=re.fullmatch(r"([A-Za-z]+)(\d+)",reference)
+        match = re.fullmatch(
+            r"\$?([A-Za-z]+)\$?(\d+)",
+            reference.strip()
+        )    
         if not match:
-            raise ValueError(f"Invalid cell reference: {reference}")
-        return match.group(1).upper(),int(match.group(2))
+            raise ValueError(
+                f"Invalid cell reference: {reference}"
+            )
+        return (
+            match.group(1).upper(),
+            int(match.group(2))
+        )
+    
+    def _normalize_reference(self, reference):
+        if not isinstance(reference, str):
+            raise ValueError(
+                "Cell reference must be a non-empty string"
+            )
+    
+        reference = reference.strip()
+    
+        if not reference:
+            raise ValueError(
+                "Cell reference must be a non-empty string"
+            )
+    
+        column, row = self.split_reference(reference)
+    
+        return f"{column}{row}"
 
     def column_number(self,column):
         result=0
