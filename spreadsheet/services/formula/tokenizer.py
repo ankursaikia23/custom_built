@@ -13,8 +13,8 @@ class Tokenizer:
         ("NUMBER", r"\d+(?:\.\d+)?"),
         ("SHEET_CELL", r"'[^']+'!\$?[A-Za-z]+\$?\d+|[A-Za-z_][A-Za-z0-9_ ]*!\$?[A-Za-z]+\$?\d+"),
         ("STRING", r'"(?:[^"]|"")*"'),
-        ("CELL", r"\$?[A-Za-z]+\$?\d+"),
         ("FUNCTION", r"[A-Za-z_][A-Za-z0-9_]*"),
+        ("CELL", r"\$?[A-Za-z]+\$?\d+"),
 
         # Comparison operators must come before single-character
         # operators so >=, <= and <> are matched as one token.

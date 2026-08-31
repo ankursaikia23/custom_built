@@ -281,11 +281,10 @@ class Evaluator:
         )
 
         try:
-
             node = Parser().parse(
                 value
             )
-
+        
             previous_sheet = self.sheet
 
             # Evaluate formula in the sheet
@@ -637,6 +636,1000 @@ class Evaluator:
 
             return False
 
+        # ==================================================
+        # IFERROR
+        # ==================================================
+
+        if name == "IFERROR":
+
+            if len(node.args) != 2:
+                return "#VALUE!"
+
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+            except Exception:
+                value = "#VALUE!"
+
+            if self._is_error(value):
+                return self.evaluate(
+                    node.args[1]
+                )
+
+            return value
+        
+        # ==================================================
+        # ISERROR
+        # ==================================================
+        
+        if name == "ISERROR":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+            except Exception:
+                return True
+        
+            return self._is_error(value)
+
+        # ==================================================
+        # ISNUMBER
+        # ==================================================
+
+        if name == "ISNUMBER":
+
+            if len(node.args) != 1:
+                return "#VALUE!"
+
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+            except Exception:
+                return False
+
+            return (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+            )
+        
+        # ==================================================
+        # ISTEXT
+        # ==================================================
+        
+        if name == "ISTEXT":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+            except Exception:
+                return False
+        
+            return isinstance(value, str) and not self._is_error(value)
+        
+        # ==================================================
+        # ISBLANK
+        # ==================================================
+        
+        if name == "ISBLANK":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            argument = node.args[0]
+        
+            if isinstance(argument, CellNode):
+        
+                target_sheet, cell_reference = (
+                    self._resolve_reference(
+                        argument.reference
+                    )
+                )
+        
+                if target_sheet is None:
+                    return False
+        
+                cell = target_sheet.get_cell(
+                    cell_reference
+                )
+        
+                return (
+                    cell is None
+                    or cell.value in (
+                        None,
+                        ""
+                    )
+                )
+        
+            return False
+        
+        # ==================================================
+        # ISLOGICAL
+        # ==================================================
+        
+        if name == "ISLOGICAL":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+            except Exception:
+                return False
+        
+            return isinstance(value, bool)
+        
+        # ==================================================
+        # ISNONTEXT
+        # ==================================================
+        
+        if name == "ISNONTEXT":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+            except Exception:
+                return False
+        
+            return not (
+                isinstance(value, str)
+                and not self._is_error(value)
+            )
+        
+        # ==================================================
+        # ISREF
+        # ==================================================
+        
+        if name == "ISREF":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            argument = node.args[0]
+        
+            return isinstance(
+                argument,
+                (CellNode, RangeNode)
+            )
+        
+        # ==================================================
+        # ISERR
+        # ==================================================
+        
+        if name == "ISERR":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+            except Exception:
+                return False
+        
+            return (
+                self._is_error(value)
+                and value != "#N/A"
+            )
+        
+        # ==================================================
+        # ISNA
+        # ==================================================
+        
+        if name == "ISNA":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+            except Exception:
+                return False
+        
+            return value == "#N/A"
+        
+        # ==================================================
+        # ISODD
+        # ==================================================
+        
+        if name == "ISODD":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+        
+                if self._is_error(value):
+                    return value
+        
+                if isinstance(value, bool):
+                    return "#VALUE!"
+        
+                return int(value) % 2 != 0
+        
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # ISEVEN
+        # ==================================================
+    
+        if name == "ISEVEN":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                return int(value) % 2 == 0
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+        
+        # ==================================================
+        # SIGN
+        # ==================================================
+        
+        if name == "SIGN":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+        
+                if self._is_error(value):
+                    return value
+        
+                if isinstance(value, bool):
+                    return "#VALUE!"
+        
+                if value > 0:
+                    return 1
+        
+                if value < 0:
+                    return -1
+        
+                return 0
+        
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # POWER
+        # ==================================================
+    
+        if name == "POWER":
+    
+            if len(node.args) != 2:
+                return "#VALUE!"
+    
+            try:
+                base = self.evaluate(
+                    node.args[0]
+                )
+    
+                exponent = self.evaluate(
+                    node.args[1]
+                )
+    
+                if self._is_error(base):
+                    return base
+    
+                if self._is_error(exponent):
+                    return exponent
+    
+                if (
+                    isinstance(base, bool)
+                    or isinstance(exponent, bool)
+                ):
+                    return "#VALUE!"
+    
+                return base ** exponent
+    
+            except (
+                TypeError,
+                ValueError,
+                OverflowError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # SQRT
+        # ==================================================
+    
+        if name == "SQRT":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                if value < 0:
+                    return "#NUM!"
+    
+                return math.sqrt(value)
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # PI
+        # ==================================================
+    
+        if name == "PI":
+    
+            if len(node.args) != 0:
+                return "#VALUE!"
+    
+            return math.pi
+        
+        # ==================================================
+        # EXP
+        # ==================================================
+        
+        if name == "EXP":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+        
+                if self._is_error(value):
+                    return value
+        
+                if isinstance(value, bool):
+                    return "#VALUE!"
+        
+                return math.exp(value)
+        
+            except (
+                TypeError,
+                ValueError,
+                OverflowError
+            ):
+                return "#VALUE!"
+        
+        # ==================================================
+        # LN
+        # ==================================================
+        
+        if name == "LN":
+        
+            if len(node.args) != 1:
+                return "#VALUE!"
+        
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+        
+                if self._is_error(value):
+                    return value
+        
+                if isinstance(value, bool):
+                    return "#VALUE!"
+        
+                if value <= 0:
+                    return "#NUM!"
+        
+                return math.log(value)
+        
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # LOG10
+        # ==================================================
+    
+        if name == "LOG10":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                if value <= 0:
+                    return "#NUM!"
+    
+                result = math.log10(
+                    value
+                )
+    
+                if math.isclose(
+                    result,
+                    round(result),
+                    rel_tol=1e-12,
+                    abs_tol=1e-12
+                ):
+                    return float(
+                        round(result)
+                    )
+    
+                return result
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # RADIANS
+        # ==================================================
+    
+        if name == "RADIANS":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                return math.radians(
+                    value
+                )
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # DEGREES
+        # ==================================================
+    
+        if name == "DEGREES":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                return math.degrees(
+                    value
+                )
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # SIN
+        # ==================================================
+    
+        if name == "SIN":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                result = math.sin(
+                    value
+                )
+    
+                if math.isclose(
+                    result,
+                    round(result),
+                    rel_tol=1e-12,
+                    abs_tol=1e-12
+                ):
+                    return float(
+                        round(result)
+                    )
+    
+                return result
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # COS
+        # ==================================================
+    
+        if name == "COS":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                result = math.cos(
+                    value
+                )
+    
+                if math.isclose(
+                    result,
+                    round(result),
+                    rel_tol=1e-12,
+                    abs_tol=1e-12
+                ):
+                    return float(
+                        round(result)
+                    )
+    
+                return result
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # TAN
+        # ==================================================
+    
+        if name == "TAN":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                result = math.tan(
+                    value
+                )
+    
+                if math.isclose(
+                    result,
+                    round(result),
+                    rel_tol=1e-12,
+                    abs_tol=1e-12
+                ):
+                    return float(
+                        round(result)
+                    )
+    
+                return result
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # ASIN
+        # ==================================================
+    
+        if name == "ASIN":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                if value < -1 or value > 1:
+                    return "#NUM!"
+    
+                return math.asin(
+                    value
+                )
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # ACOS
+        # ==================================================
+    
+        if name == "ACOS":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                if value < -1 or value > 1:
+                    return "#NUM!"
+    
+                return math.acos(
+                    value
+                )
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # ATAN
+        # ==================================================
+    
+        if name == "ATAN":
+    
+            if len(node.args) != 1:
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                return math.atan(
+                    value
+                )
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # ATAN2
+        # ==================================================
+    
+        if name == "ATAN2":
+    
+            if len(node.args) != 2:
+                return "#VALUE!"
+    
+            try:
+                x = self.evaluate(
+                    node.args[0]
+                )
+    
+                y = self.evaluate(
+                    node.args[1]
+                )
+    
+                if self._is_error(x):
+                    return x
+    
+                if self._is_error(y):
+                    return y
+    
+                if (
+                    isinstance(x, bool)
+                    or isinstance(y, bool)
+                ):
+                    return "#VALUE!"
+    
+                if x == 0 and y == 0:
+                    return "#DIV/0!"
+    
+                return math.atan2(
+                    y,
+                    x
+                )
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # CEILING
+        # ==================================================
+    
+        if name == "CEILING":
+    
+            if len(node.args) != 2:
+                return "#VALUE!"
+    
+            try:
+                number = self.evaluate(
+                    node.args[0]
+                )
+    
+                significance = self.evaluate(
+                    node.args[1]
+                )
+    
+                if self._is_error(number):
+                    return number
+    
+                if self._is_error(significance):
+                    return significance
+    
+                if (
+                    isinstance(number, bool)
+                    or isinstance(significance, bool)
+                ):
+                    return "#VALUE!"
+    
+                if significance == 0:
+                    return "#DIV/0!"
+    
+                if number == 0:
+                    return 0
+    
+                significance = abs(
+                    significance
+                )
+    
+                if number > 0:
+                    return (
+                        math.ceil(
+                            number / significance
+                        )
+                        * significance
+                    )
+    
+                return (
+                    math.floor(
+                        number / significance
+                    )
+                    * significance
+                )
+    
+            except (
+                TypeError,
+                ValueError,
+                OverflowError
+            ):
+                return "#VALUE!"
+            
+        # ==================================================
+        # FLOOR
+        # ==================================================
+    
+        if name == "FLOOR":
+    
+            if len(node.args) != 2:
+                return "#VALUE!"
+    
+            try:
+                number = self.evaluate(
+                    node.args[0]
+                )
+    
+                significance = self.evaluate(
+                    node.args[1]
+                )
+    
+                if self._is_error(number):
+                    return number
+    
+                if self._is_error(significance):
+                    return significance
+    
+                if (
+                    isinstance(number, bool)
+                    or isinstance(significance, bool)
+                ):
+                    return "#VALUE!"
+    
+                if significance == 0:
+                    return "#DIV/0!"
+    
+                if number == 0:
+                    return 0
+    
+                significance = abs(
+                    significance
+                )
+    
+                if number > 0:
+                    return (
+                        math.floor(
+                            number / significance
+                        )
+                        * significance
+                    )
+    
+                return (
+                    math.ceil(
+                        number / significance
+                    )
+                    * significance
+                )
+    
+            except (
+                TypeError,
+                ValueError,
+                OverflowError
+            ):
+                return "#VALUE!"
+        
+        # ==================================================
+        # LOG
+        # ==================================================
+    
+        if name == "LOG":
+    
+            if len(node.args) not in (1, 2):
+                return "#VALUE!"
+    
+            try:
+                value = self.evaluate(
+                    node.args[0]
+                )
+    
+                if self._is_error(value):
+                    return value
+    
+                if isinstance(value, bool):
+                    return "#VALUE!"
+    
+                base = (
+                    self.evaluate(node.args[1])
+                    if len(node.args) == 2
+                    else 10
+                )
+    
+                if self._is_error(base):
+                    return base
+    
+                if isinstance(base, bool):
+                    return "#VALUE!"
+    
+                if value <= 0 or base <= 0 or base == 1:
+                    return "#NUM!"
+    
+                result = math.log(
+                    value,
+                    base
+                )
+                
+                if math.isclose(
+                    result,
+                    round(result),
+                    rel_tol=1e-12,
+                    abs_tol=1e-12
+                ):
+                    return float(
+                        round(result)
+                    )
+                
+                return result
+    
+            except (
+                TypeError,
+                ValueError
+            ):
+                return "#VALUE!"
+        
         # ==================================================
         # IFS
         # ==================================================

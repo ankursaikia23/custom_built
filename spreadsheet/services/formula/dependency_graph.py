@@ -40,50 +40,72 @@ class DependencyGraph:
             self.dependents[dependency].add(cell)
 
     def set_formula_dependencies(
-        self,
-        cell,
-        formula,
-    ):
-        node = self.parser.parse(
-            formula
-        )
+            self,
+            cell,
+            formula,
+        ):
+        try:
+            node = self.parser.parse(
+                formula
+            )
+        
+            dependencies = (
+                self.analyzer.get_dependencies(node)
+            )
+        
+        except (
+            ValueError,
+            TypeError
+        ):
+            # Invalid formula syntax should not
+            # crash the application. However, the
+            # formula itself remains stored in the cell.
+            self.set_dependencies(
+                cell,
+                set()
+            )
+            return
+        
+        except (
+            ValueError,
+            TypeError
+        ):
+            self.set_dependencies(
+                cell,
+                set()
+            )
+            return
 
-        dependencies = (
-            self.analyzer.get_dependencies(node)
-        )
-
-        # A formula registered as Sheet1!B1 may contain
-        # a local reference such as A1. Convert that local
-        # reference into Sheet1!A1 so it matches the
-        # workbook-wide dependency keys.
         sheet_name = None
 
         if "!" in cell:
             sheet_name = cell.rsplit(
                 "!",
                 1
-            )[0]
+            )[0].strip("'")
 
         normalized_dependencies = set()
 
         for dependency in dependencies:
+            dependency = dependency.strip()
+
             if (
                 sheet_name is not None
                 and "!" not in dependency
             ):
-                normalized_dependencies.add(
+                dependency = (
                     f"{sheet_name}!{dependency}"
                 )
-            else:
-                normalized_dependencies.add(
-                    dependency
-                )
+
+            normalized_dependencies.add(
+                dependency
+            )
 
         self.set_dependencies(
             cell,
             normalized_dependencies
         )
-
+        
     def remove_cell(self, cell):
         old_dependencies = self.dependencies.pop(
             cell,
