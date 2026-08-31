@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QTabWidget, QLabe
 from PyQt6.QtCore import QSignalBlocker
 #from PyQt6.QtGui import QAction
 from core.workbook import Workbook
-from services.formula.evaluator import Evaluator
+#from services.formula.evaluator import Evaluator
 from commands.history import History
 from commands.edit_cell import EditCellCommand
 from .spreadsheet_view import SpreadsheetView
@@ -33,6 +33,9 @@ class MainWindow(QMainWindow):
             view=SpreadsheetView()
             view.cellChanged.connect(self.handle_cell_changed)
             view.currentCellChanged.connect(self.handle_cell_selected)
+            view.deleteRequested.connect(
+                self.handle_delete_requested
+            )
             self.views.append(view)
             self.sheet_tabs.addTab(view,sheet.name)
         self.sheet_tabs.currentChanged.connect(self.handle_sheet_changed)
@@ -318,33 +321,19 @@ class MainWindow(QMainWindow):
             )
     
     def undo(self):
-        if not self.history.undo():
+        command = self.history.undo()
+    
+        if command is None:
             return
-    
-        index = self.sheet_tabs.currentIndex()
-        sheet = self.workbook.sheets[index]
-    
-        # Recalculate the edited cell and all dependent cells.
-        self.workbook.recalculation_manager.recalculate_from(
-            self.history.redo_stack[-1].reference,
-            sheet=sheet
-        )
     
         self.refresh_current_view()
     
     
     def redo(self):
-        if not self.history.redo():
+        command = self.history.redo()
+    
+        if command is None:
             return
-    
-        index = self.sheet_tabs.currentIndex()
-        sheet = self.workbook.sheets[index]
-    
-        # Recalculate the edited cell and all dependent cells.
-        self.workbook.recalculation_manager.recalculate_from(
-            self.history.undo_stack[-1].reference,
-            sheet=sheet
-        )
     
         self.refresh_current_view()
     
@@ -386,3 +375,46 @@ class MainWindow(QMainWindow):
                 -1,
                 -1
             )
+            
+    def handle_delete_requested(self):
+        index = self.sheet_tabs.currentIndex()
+        view = self.views[index]
+        sheet = self.workbook.sheets[index]
+    
+        row = view.currentRow()
+        column = view.currentColumn()
+    
+        if row < 0 or column < 0:
+            return
+    
+        reference = (
+            f"{chr(65 + column)}"
+            f"{row + 1}"
+        )
+    
+        cell = sheet.get_cell(reference)
+    
+        if cell is None:
+            return
+    
+        from commands.delete import DeleteCellsCommand
+    
+        command = DeleteCellsCommand(
+            sheet,
+            [reference]
+        )
+    
+        self.history.execute(command)
+    
+        self.workbook.recalculation_manager.recalculate_from(
+            reference,
+            sheet=sheet
+        )
+    
+        self.refresh_current_view()
+    
+        self.formula_bar.clear()
+    
+        self.status_label.setText(
+            f"{reference} cleared"
+        )

@@ -12,14 +12,10 @@ class Tokenizer:
     TOKEN_SPECIFICATION = [
         ("NUMBER", r"\d+(?:\.\d+)?"),
         ("SHEET_CELL", r"'[^']+'!\$?[A-Za-z]+\$?\d+|[A-Za-z_][A-Za-z0-9_ ]*!\$?[A-Za-z]+\$?\d+"),
-        ("STRING", r'"(?:[^"]|"")*"'),
+        ("STRING", r'"(?:[^"]|"")*"'),    
         ("FUNCTION", r"[A-Za-z_][A-Za-z0-9_]*"),
         ("CELL", r"\$?[A-Za-z]+\$?\d+"),
-
-        # Comparison operators must come before single-character
-        # operators so >=, <= and <> are matched as one token.
         ("COMPARISON", r"<>|>=|<=|=|>|<"),
-
         ("OPERATOR", r"[+\-*/^]"),
         ("LPAREN", r"\("),
         ("RPAREN", r"\)"),
@@ -27,7 +23,7 @@ class Tokenizer:
         ("COLON", r":"),
         ("WHITESPACE", r"\s+"),
     ]
-
+    
     def tokenize(self, formula):
         if not isinstance(formula, str):
             raise TypeError("Formula must be a string")
@@ -59,6 +55,19 @@ class Tokenizer:
             value = match.group()
 
             position += len(value)
+            
+            if token_type == "FUNCTION":
+                remaining = formula[position:]
+            
+                if not re.match(
+                    r"\s*\(",
+                    remaining
+                ):
+                    if re.fullmatch(
+                        r"\$?[A-Za-z]+\$?\d+",
+                        value
+                    ):
+                        token_type = "CELL"
 
             if token_type == "WHITESPACE":
                 continue
