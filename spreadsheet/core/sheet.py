@@ -15,6 +15,7 @@ class Sheet:
 
     def set_cell(self, reference, value):
         reference = self._normalize_reference(reference)
+    
         if reference not in self.cells:
             self.cells[reference] = Cell(
                 reference,
@@ -24,24 +25,53 @@ class Sheet:
             cell = self.cells[reference]
             cell.value = value
             cell.calculated_value = None
-
+    
         if self.workbook is not None:
+    
             qualified_reference = (
                 f"{self.name}!{reference}"
             )
+    
             self.workbook.recalculation_manager.register_formula(
                 qualified_reference,
                 value
             )
+    
+            self.workbook.recalculation_manager.recalculate_from(
+                reference,
+                sheet=self
+            )
+    
         return self.cells[reference]
+    
     
     def get_cell(self, reference):
         reference = self._normalize_reference(reference)
         return self.cells.get(reference)
     
+    
     def delete_cell(self, reference):
         reference = self._normalize_reference(reference)
-        return self.cells.pop(reference, None)
+    
+        cell = self.cells.pop(
+            reference,
+            None
+        )
+    
+        if (
+            cell is not None
+            and self.workbook is not None
+        ):
+    
+            qualified_reference = (
+                f"{self.name}!{reference}"
+            )
+    
+            self.workbook.recalculation_manager.remove_formula(
+                qualified_reference
+            )
+    
+        return cell
 
     def set_row_height(self,row,height):
         if row<1:

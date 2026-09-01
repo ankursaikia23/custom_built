@@ -1,4 +1,11 @@
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QTabWidget, QLabel, QTableWidgetItem
+from PyQt6.QtWidgets import (
+    QMainWindow,
+    QVBoxLayout,
+    QWidget,
+    QTabWidget,
+    QLabel,
+    QTableWidgetItem,
+)
 from PyQt6.QtCore import QSignalBlocker
 #from PyQt6.QtGui import QAction
 from core.workbook import Workbook
@@ -8,6 +15,9 @@ from commands.edit_cell import EditCellCommand
 from .spreadsheet_view import SpreadsheetView
 from .formula_bar import FormulaBar
 from .toolbar import SpreadsheetToolbar
+from commands.copy_paste import Clipboard
+#from commands.copy_paste import PasteCellsCommand
+from PyQt6.QtGui import QShortcut, QKeySequence
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -24,6 +34,24 @@ class MainWindow(QMainWindow):
         self.workbook.add_sheet("Sheet2")
         self.workbook.add_sheet("Sheet3")
         self.history=History()
+        self.undo_shortcut = QShortcut(
+            QKeySequence("Ctrl+Z"),
+            self
+        )
+        
+        self.undo_shortcut.activated.connect(
+            self.undo
+        )
+        
+        self.redo_shortcut = QShortcut(
+            QKeySequence("Ctrl+Y"),
+            self
+        )
+        
+        self.redo_shortcut.activated.connect(
+            self.redo
+        )
+        self.clipboard=Clipboard()
         self.toolbar=SpreadsheetToolbar()
         self.addToolBar(self.toolbar)
         self.formula_bar=FormulaBar()
@@ -36,6 +64,12 @@ class MainWindow(QMainWindow):
             view.deleteRequested.connect(
                 self.handle_delete_requested
             )
+            view.copyRequested.connect(
+                self.handle_copy_requested
+            )
+            view.pasteRequested.connect(
+                self.handle_paste_requested
+            )
             self.views.append(view)
             self.sheet_tabs.addTab(view,sheet.name)
         self.sheet_tabs.currentChanged.connect(self.handle_sheet_changed)
@@ -44,6 +78,30 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.status_label)
         self.toolbar.actions()[2].triggered.connect(self.undo)
         self.toolbar.actions()[3].triggered.connect(self.redo)
+        self.copy_shortcut = QShortcut(
+            QKeySequence("Ctrl+C"),
+            self
+        )
+        
+        self.copy_shortcut.activated.connect(
+            self.handle_copy
+        )
+        self.cut_shortcut = QShortcut(
+            QKeySequence("Ctrl+X"),
+            self
+        )
+        
+        self.cut_shortcut.activated.connect(
+            self.handle_cut
+        )
+        self.paste_shortcut = QShortcut(
+            QKeySequence("Ctrl+V"),
+            self
+        )
+        
+        self.paste_shortcut.activated.connect(
+            self.handle_paste
+        )
         container=QWidget()
         layout=QVBoxLayout(container)
         layout.setContentsMargins(0,0,0,0)
@@ -376,7 +434,152 @@ class MainWindow(QMainWindow):
                 -1
             )
             
-    def handle_delete_requested(self):
+    def handle_copy_requested(self):
+
+        index = self.sheet_tabs.currentIndex()
+        view = self.views[index]
+        sheet = self.workbook.sheets[index]
+
+        ranges = view.selectedRanges()
+
+        if not ranges:
+            return
+
+        selected_range = ranges[0]
+
+        start_reference = (
+            f"{chr(65 + selected_range.leftColumn())}"
+            f"{selected_range.topRow() + 1}"
+        )
+
+        end_reference = (
+            f"{chr(65 + selected_range.rightColumn())}"
+            f"{selected_range.bottomRow() + 1}"
+        )
+
+        self.clipboard.copy(
+            sheet,
+            start_reference,
+            end_reference
+        )
+
+        self.status_label.setText(
+            f"Copied {start_reference}:{end_reference}"
+        )
+        
+    def handle_paste_requested(self):
+
+        index = self.sheet_tabs.currentIndex()
+        view = self.views[index]
+        sheet = self.workbook.sheets[index]
+
+        row = view.currentRow()
+        column = view.currentColumn()
+
+        if row < 0 or column < 0:
+            return
+
+        if not self.clipboard.cells:
+            return
+
+        destination_reference = (
+            f"{chr(65 + column)}"
+            f"{row + 1}"
+        )
+
+        command = PasteCellsCommand(
+            sheet,
+            self.clipboard,
+            destination_reference
+        )
+
+        self.history.execute(
+            command
+        )
+
+        self.refresh_current_view()
+
+        self.status_label.setText(
+            f"Pasted at {destination_reference}"
+        )
+        
+    def handle_copy(self):
+        index = self.sheet_tabs.currentIndex()
+        view = self.views[index]
+        sheet = self.workbook.sheets[index]
+    
+        ranges = view.selectedRanges()
+    
+        if not ranges:
+            return
+    
+        selected_range = ranges[0]
+    
+        start_row = selected_range.topRow()
+        end_row = selected_range.bottomRow()
+        start_column = selected_range.leftColumn()
+        end_column = selected_range.rightColumn()
+    
+        start_reference = (
+            f"{chr(65 + start_column)}"
+            f"{start_row + 1}"
+        )
+    
+        end_reference = (
+            f"{chr(65 + end_column)}"
+            f"{end_row + 1}"
+        )
+    
+        self.clipboard.copy(
+            sheet,
+            start_reference,
+            end_reference
+        )
+    
+        self.status_label.setText(
+            f"Copied {start_reference}:{end_reference}"
+        )
+        
+    def handle_cut(self):
+        index = self.sheet_tabs.currentIndex()
+        view = self.views[index]
+        sheet = self.workbook.sheets[index]
+    
+        ranges = view.selectedRanges()
+    
+        if not ranges:
+            return
+    
+        selected_range = ranges[0]
+    
+        start_row = selected_range.topRow()
+        end_row = selected_range.bottomRow()
+        start_column = selected_range.leftColumn()
+        end_column = selected_range.rightColumn()
+    
+        start_reference = (
+            f"{chr(65 + start_column)}"
+            f"{start_row + 1}"
+        )
+    
+        end_reference = (
+            f"{chr(65 + end_column)}"
+            f"{end_row + 1}"
+        )
+    
+        # Store the selected cells in the clipboard.
+        self.clipboard.cut(
+            sheet,
+            start_reference,
+            end_reference
+        )
+    
+        self.status_label.setText(
+            f"Cut {start_reference}:{end_reference}"
+        )
+    
+    
+    def handle_paste(self):
         index = self.sheet_tabs.currentIndex()
         view = self.views[index]
         sheet = self.workbook.sheets[index]
@@ -387,34 +590,66 @@ class MainWindow(QMainWindow):
         if row < 0 or column < 0:
             return
     
-        reference = (
+        destination_reference = (
             f"{chr(65 + column)}"
             f"{row + 1}"
         )
     
-        cell = sheet.get_cell(reference)
-    
-        if cell is None:
+        if not self.clipboard.cells:
+            self.status_label.setText(
+                "Clipboard is empty"
+            )
             return
     
-        from commands.delete import DeleteCellsCommand
+        from commands.paste_cells import PasteCellsCommand
     
-        command = DeleteCellsCommand(
+        command = PasteCellsCommand(
+            self.clipboard,
             sheet,
-            [reference]
+            destination_reference
         )
     
         self.history.execute(command)
     
         self.workbook.recalculation_manager.recalculate_from(
-            reference,
+            destination_reference,
             sheet=sheet
         )
     
         self.refresh_current_view()
     
-        self.formula_bar.clear()
-    
         self.status_label.setText(
-            f"{reference} cleared"
+            f"Pasted at {destination_reference}"
+        )
+            
+    def handle_delete_requested(self, references):
+
+        index = self.sheet_tabs.currentIndex()
+        #view = self.views[index]
+        sheet = self.workbook.sheets[index]
+
+        if not references:
+            return
+
+        from commands.delete import DeleteCellsCommand
+
+        command = DeleteCellsCommand(
+            sheet,
+            references
+        )
+
+        self.history.execute(command)
+
+        for reference in references:
+            self.workbook.recalculation_manager.recalculate_from(
+                reference,
+                sheet=sheet
+            )
+
+        self.refresh_current_view()
+
+        self.formula_bar.clear()
+
+        self.status_label.setText(
+            f"{len(references)} cell(s) cleared"
         )

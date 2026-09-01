@@ -3,7 +3,9 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 class SpreadsheetView(QTableWidget):
 
-    deleteRequested = pyqtSignal()
+    deleteRequested = pyqtSignal(list)
+    copyRequested = pyqtSignal()
+    pasteRequested = pyqtSignal()
 
     def __init__(self):
         super().__init__(50, 26)
@@ -47,7 +49,50 @@ class SpreadsheetView(QTableWidget):
             Qt.Key.Key_Delete,
             Qt.Key.Key_Backspace,
         ):
-            self.deleteRequested.emit()
+
+            references = []
+
+            for item in self.selectedItems():
+
+                reference = (
+                    f"{chr(65 + item.column())}"
+                    f"{item.row() + 1}"
+                )
+
+                if reference not in references:
+                    references.append(reference)
+
+            if not references:
+
+                row = self.currentRow()
+                column = self.currentColumn()
+
+                if row >= 0 and column >= 0:
+                    references.append(
+                        f"{chr(65 + column)}"
+                        f"{row + 1}"
+                    )
+
+            self.deleteRequested.emit(
+                references
+            )
+
+            return
+
+        if (
+            event.key() == Qt.Key.Key_C
+            and event.modifiers()
+            & Qt.KeyboardModifier.ControlModifier
+        ):
+            self.copyRequested.emit()
+            return
+
+        if (
+            event.key() == Qt.Key.Key_V
+            and event.modifiers()
+            & Qt.KeyboardModifier.ControlModifier
+        ):
+            self.pasteRequested.emit()
             return
 
         super().keyPressEvent(event)
