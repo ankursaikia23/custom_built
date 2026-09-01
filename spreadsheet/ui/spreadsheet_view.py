@@ -17,7 +17,27 @@ class SpreadsheetView(QTableWidget):
         self.verticalHeader().setDefaultSectionSize(24)
         self.horizontalHeader().setDefaultSectionSize(90)
 
+        # ==========================================
+        # Selection
+        # ==========================================
+
+        self.setSelectionMode(
+            QTableWidget.SelectionMode.ExtendedSelection
+        )
+
+        self.setSelectionBehavior(
+            QTableWidget.SelectionBehavior.SelectItems
+        )
+
+        self.setFocusPolicy(
+            Qt.FocusPolicy.StrongFocus
+        )
+
     def keyPressEvent(self, event):
+
+        # ==========================================
+        # Enter / Shift + Enter
+        # ==========================================
 
         if event.key() == Qt.Key.Key_Return:
 
@@ -28,11 +48,13 @@ class SpreadsheetView(QTableWidget):
                 event.modifiers()
                 & Qt.KeyboardModifier.ShiftModifier
             ):
+
                 if row > 0:
                     self.setCurrentCell(
                         row - 1,
                         column
                     )
+
                 return
 
             super().keyPressEvent(event)
@@ -44,6 +66,10 @@ class SpreadsheetView(QTableWidget):
                 )
 
             return
+
+        # ==========================================
+        # Delete / Backspace
+        # ==========================================
 
         if event.key() in (
             Qt.Key.Key_Delete,
@@ -68,6 +94,7 @@ class SpreadsheetView(QTableWidget):
                 column = self.currentColumn()
 
                 if row >= 0 and column >= 0:
+
                     references.append(
                         f"{chr(65 + column)}"
                         f"{row + 1}"
@@ -79,20 +106,36 @@ class SpreadsheetView(QTableWidget):
 
             return
 
+        # ==========================================
+        # Ctrl + C
+        # ==========================================
+
         if (
             event.key() == Qt.Key.Key_C
             and event.modifiers()
             & Qt.KeyboardModifier.ControlModifier
         ):
+
             self.copyRequested.emit()
+
             return
+
+        # ==========================================
+        # Ctrl + V
+        # ==========================================
 
         if (
             event.key() == Qt.Key.Key_V
             and event.modifiers()
             & Qt.KeyboardModifier.ControlModifier
         ):
+
             self.pasteRequested.emit()
+
             return
+
+        # ==========================================
+        # Default keyboard handling
+        # ==========================================
 
         super().keyPressEvent(event)

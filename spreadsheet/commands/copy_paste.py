@@ -1,6 +1,5 @@
 from copy import deepcopy
 
-
 class Clipboard:
 
     def __init__(self):

@@ -2,7 +2,6 @@ from .base import Command
 from copy import deepcopy
 from services.formula.reference_translator import ReferenceTranslator
 
-
 class PasteCellsCommand(Command):
 
     def __init__(
@@ -442,8 +441,6 @@ class PasteCellsCommand(Command):
                 )
         
         self.first_execution = False
-        print("C2 VALUE:", self.sheet.get_cell("C2").value)
-        print("C2 CALCULATED:", self.sheet.get_cell("C2").calculated_value)
 
     def undo(self):
 

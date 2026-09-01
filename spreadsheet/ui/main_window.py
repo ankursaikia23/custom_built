@@ -5,8 +5,9 @@ from PyQt6.QtWidgets import (
     QTabWidget,
     QLabel,
     QTableWidgetItem,
+    QColorDialog
 )
-from PyQt6.QtCore import QSignalBlocker
+from PyQt6.QtCore import QSignalBlocker, Qt
 #from PyQt6.QtGui import QAction
 from core.workbook import Workbook
 #from services.formula.evaluator import Evaluator
@@ -16,8 +17,9 @@ from .spreadsheet_view import SpreadsheetView
 from .formula_bar import FormulaBar
 from .toolbar import SpreadsheetToolbar
 from commands.copy_paste import Clipboard
-#from commands.copy_paste import PasteCellsCommand
-from PyQt6.QtGui import QShortcut, QKeySequence
+from commands.paste_cells import PasteCellsCommand
+from PyQt6.QtGui import QShortcut, QKeySequence, QColor
+from commands.format_cells import FormatCellsCommand
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -78,6 +80,36 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.status_label)
         self.toolbar.actions()[2].triggered.connect(self.undo)
         self.toolbar.actions()[3].triggered.connect(self.redo)
+        self.toolbar.bold_action.triggered.connect(
+            self.handle_bold
+        )
+        
+        self.toolbar.italic_action.triggered.connect(
+            self.handle_italic
+        )
+        
+        self.toolbar.underline_action.triggered.connect(
+            self.handle_underline
+        )
+        self.toolbar.font_family_combo.currentTextChanged.connect(
+            self.handle_font_family
+        )        
+        self.toolbar.font_size_combo.currentTextChanged.connect(
+            self.handle_font_size
+        )
+        self.toolbar.text_color_action.triggered.connect(
+            self.handle_text_color
+        )
+        self.toolbar.background_color_action.triggered.connect(
+            self.handle_background_color
+        )
+        self.toolbar.horizontal_alignment_combo.currentTextChanged.connect(
+            self.handle_horizontal_alignment
+        )
+        
+        self.toolbar.vertical_alignment_combo.currentTextChanged.connect(
+            self.handle_vertical_alignment
+        )
         self.copy_shortcut = QShortcut(
             QKeySequence("Ctrl+C"),
             self
@@ -276,8 +308,15 @@ class MainWindow(QMainWindow):
                     else:
     
                         item.setText(
-                            str(cell.value)
+                            str(
+                                cell.value
+                            )
                         )
+    
+                    self.apply_cell_format(
+                        cell,
+                        item
+                    )
     
     def handle_cell_selected(
         self,
@@ -349,34 +388,78 @@ class MainWindow(QMainWindow):
             f"{reference} = {value}"
         )
         
-    def refresh_cell_display(self, sheet, view, reference):
-        cell = sheet.get_cell(reference)
+    def refresh_cell_display(
+        self,
+        sheet,
+        view,
+        reference
+    ):
+    
+        cell = sheet.get_cell(
+            reference
+        )
+    
         if cell is None:
-            return    
-        column, row = sheet.split_reference(reference)
-        column_index = sheet.column_number(column) - 1
+            return
+    
+        column, row = (
+            sheet.split_reference(
+                reference
+            )
+        )
+    
+        column_index = (
+            sheet.column_number(
+                column
+            ) - 1
+        )
+    
         row_index = row - 1
-        item = view.item(row_index, column_index)
+    
+        item = view.item(
+            row_index,
+            column_index
+        )
+    
         if item is None:
+    
             item = QTableWidgetItem()
+    
             with QSignalBlocker(view):
+    
                 view.setItem(
                     row_index,
                     column_index,
                     item
                 )
+    
         if (
-            isinstance(cell.value, str)
+            isinstance(
+                cell.value,
+                str
+            )
             and cell.value.startswith("=")
             and cell.calculated_value is not None
         ):
+    
             item.setText(
-                str(cell.calculated_value)
+                str(
+                    cell.calculated_value
+                )
             )
+    
         else:
+    
             item.setText(
-                str(cell.value)
+                str(
+                    cell.value
+                )
             )
+    
+        self.apply_cell_format(
+            cell,
+            item
+        )
     
     def undo(self):
         command = self.history.undo()
@@ -396,37 +479,97 @@ class MainWindow(QMainWindow):
         self.refresh_current_view()
     
     def refresh_current_view(self):
-        index = self.sheet_tabs.currentIndex()
+    
+        index = (
+            self.sheet_tabs.currentIndex()
+        )
+    
         view = self.views[index]
         sheet = self.workbook.sheets[index]
+    
         with QSignalBlocker(view):
-            for row in range(view.rowCount()):
-                for column in range(view.columnCount()):
-                    reference = f"{chr(65 + column)}{row + 1}"
-                    cell = sheet.get_cell(reference)    
+    
+            for row in range(
+                view.rowCount()
+            ):
+    
+                for column in range(
+                    view.columnCount()
+                ):
+    
+                    reference = (
+                        f"{chr(65 + column)}"
+                        f"{row + 1}"
+                    )
+    
+                    cell = sheet.get_cell(
+                        reference
+                    )
+    
                     if cell is None:
-                        view.takeItem(row, column)
+    
+                        view.takeItem(
+                            row,
+                            column
+                        )
+    
                         continue
-                    item = view.item(row, column)
+    
+                    item = view.item(
+                        row,
+                        column
+                    )
+    
                     if item is None:
+    
                         item = QTableWidgetItem()
-                        view.setItem(row, column, item)
+    
+                        view.setItem(
+                            row,
+                            column,
+                            item
+                        )
+    
                     if (
-                        isinstance(cell.value, str)
+                        isinstance(
+                            cell.value,
+                            str
+                        )
                         and cell.value.startswith("=")
                     ):
-                        if cell.calculated_value is not None:
+    
+                        if (
+                            cell.calculated_value
+                            is not None
+                        ):
+    
                             item.setText(
-                                str(cell.calculated_value)
+                                str(
+                                    cell.calculated_value
+                                )
                             )
+    
                         else:
+    
                             item.setText("")
+    
                     else:
+    
                         item.setText(
-                            str(cell.value)
+                            str(
+                                cell.value
+                            )
                         )
+    
+                    self.apply_cell_format(
+                        cell,
+                        item
+                    )
+    
         current = view.currentItem()
+    
         if current is not None:
+    
             self.handle_cell_selected(
                 current.row(),
                 current.column(),
@@ -488,8 +631,8 @@ class MainWindow(QMainWindow):
         )
 
         command = PasteCellsCommand(
-            sheet,
             self.clipboard,
+            sheet,
             destination_reference
         )
 
@@ -652,4 +795,315 @@ class MainWindow(QMainWindow):
 
         self.status_label.setText(
             f"{len(references)} cell(s) cleared"
+        )
+        
+    def get_selected_references(self):
+    
+        index = self.sheet_tabs.currentIndex()
+        view = self.views[index]
+    
+        ranges = view.selectedRanges()
+    
+        if not ranges:
+            row = view.currentRow()
+            column = view.currentColumn()
+    
+            if row < 0 or column < 0:
+                return []
+    
+            return [
+                f"{chr(65 + column)}{row + 1}"
+            ]
+    
+        selected_range = ranges[0]
+    
+        references = []
+    
+        for row in range(
+            selected_range.topRow(),
+            selected_range.bottomRow() + 1
+        ):
+    
+            for column in range(
+                selected_range.leftColumn(),
+                selected_range.rightColumn() + 1
+            ):
+    
+                references.append(
+                    f"{chr(65 + column)}{row + 1}"
+                )
+    
+        return references
+    
+    
+    def handle_bold(self, checked):
+    
+        self.apply_formatting(
+            bold=checked
+        )
+    
+    
+    def handle_italic(self, checked):
+    
+        self.apply_formatting(
+            italic=checked
+        )
+    
+    
+    def handle_underline(self, checked):
+    
+        self.apply_formatting(
+            underline=checked
+        )
+        
+    def handle_horizontal_alignment(
+        self,
+        alignment
+    ):
+    
+        alignment_map = {
+            "Left": "left",
+            "Center": "center",
+            "Right": "right",
+        }
+    
+        value = alignment_map.get(
+            alignment
+        )
+    
+        if value is None:
+            return
+    
+        self.apply_formatting(
+            horizontal_alignment=value
+        )
+    
+    
+    def handle_vertical_alignment(
+        self,
+        alignment
+    ):
+    
+        alignment_map = {
+            "Top": "top",
+            "Center": "center",
+            "Bottom": "bottom",
+        }
+    
+        value = alignment_map.get(
+            alignment
+        )
+    
+        if value is None:
+            return
+    
+        self.apply_formatting(
+            vertical_alignment=value
+        )
+        
+    def apply_cell_format(
+        self,
+        cell,
+        item
+    ):
+    
+        if cell is None or item is None:
+            return
+    
+        cell_format = cell.format
+    
+        # ==========================================
+        # Font
+        # ==========================================
+    
+        font = item.font()
+    
+        font.setFamily(
+            cell_format.font_family
+        )
+    
+        font.setPointSize(
+            int(cell_format.font_size)
+        )
+    
+        font.setBold(
+            cell_format.bold
+        )
+    
+        font.setItalic(
+            cell_format.italic
+        )
+    
+        font.setUnderline(
+            cell_format.underline
+        )
+    
+        item.setFont(
+            font
+        )
+    
+        # ==========================================
+        # Text color
+        # ==========================================
+    
+        item.setForeground(
+            QColor(
+                cell_format.text_color
+            )
+        )
+ 
+        # ==========================================
+        # Background color
+        # ==========================================
+        
+        item.setBackground(
+            QColor(
+                cell_format.background_color
+            )
+        )
+    
+        # ==========================================
+        # Horizontal alignment
+        # ==========================================
+    
+        horizontal_alignment = (
+            cell_format.horizontal_alignment
+        )
+    
+        if horizontal_alignment == "left":
+    
+            horizontal_flag = (
+                Qt.AlignmentFlag.AlignLeft
+            )
+    
+        elif horizontal_alignment == "center":
+    
+            horizontal_flag = (
+                Qt.AlignmentFlag.AlignHCenter
+            )
+    
+        else:
+    
+            horizontal_flag = (
+                Qt.AlignmentFlag.AlignRight
+            )
+    
+        # ==========================================
+        # Vertical alignment
+        # ==========================================
+    
+        vertical_alignment = (
+            cell_format.vertical_alignment
+        )
+    
+        if vertical_alignment == "top":
+    
+            vertical_flag = (
+                Qt.AlignmentFlag.AlignTop
+            )
+    
+        elif vertical_alignment == "center":
+    
+            vertical_flag = (
+                Qt.AlignmentFlag.AlignVCenter
+            )
+    
+        else:
+    
+            vertical_flag = (
+                Qt.AlignmentFlag.AlignBottom
+            )
+    
+        item.setTextAlignment(
+            horizontal_flag
+            | vertical_flag
+        )
+        
+    def handle_font_family(self, family):
+        if not family:
+            return
+    
+        self.apply_formatting(
+            font_family=family
+        )
+    
+    def handle_font_size(self, size):
+        if not size:
+            return
+    
+        try:
+            size = float(size)
+        except ValueError:
+            return
+    
+        self.apply_formatting(
+            font_size=size
+        )
+        
+    def handle_text_color(self):
+        color = QColorDialog.getColor(
+            parent=self
+        )
+    
+        if not color.isValid():
+            return
+    
+        self.apply_formatting(
+            text_color=color.name().upper()
+        )
+        
+    def handle_background_color(self):
+    
+        color = QColorDialog.getColor(
+            parent=self
+        )
+    
+        if not color.isValid():
+            return
+    
+        self.apply_formatting(
+            background_color=color.name().upper()
+        )
+        
+    def apply_formatting(
+        self,
+        bold=None,
+        italic=None,
+        underline=None,
+        font_family=None,
+        font_size=None,
+        text_color=None,
+        background_color=None,
+        horizontal_alignment=None,
+        vertical_alignment=None
+    ):
+    
+        index = self.sheet_tabs.currentIndex()
+        sheet = self.workbook.sheets[index]
+    
+        references = self.get_selected_references()
+    
+        if not references:
+            return
+    
+        command = FormatCellsCommand(
+            sheet,
+            references,
+            bold=bold,
+            italic=italic,
+            underline=underline,
+            font_family=font_family,
+            font_size=font_size,
+            text_color=text_color,
+            background_color=background_color,
+            horizontal_alignment=horizontal_alignment,
+            vertical_alignment=vertical_alignment
+        )
+    
+        self.history.execute(command)
+    
+        self.refresh_current_view()
+    
+        self.status_label.setText(
+            f"Formatted {len(references)} cell(s)"
         )
