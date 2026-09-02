@@ -243,13 +243,64 @@ class MainWindow(QMainWindow):
         value,
         number_format
     ):
-    
+
         if value is None:
             return ""
-    
+
         if number_format == "general":
             return str(value)
-    
+
+        if number_format == "date":
+            from datetime import (
+                date,
+                datetime
+            )
+
+            if isinstance(
+                value,
+                datetime
+            ):
+                return value.strftime(
+                    "%d/%m/%Y"
+                )
+
+            if isinstance(
+                value,
+                date
+            ):
+                return value.strftime(
+                    "%d/%m/%Y"
+                )
+
+            if isinstance(
+                value,
+                str
+            ):
+                date_formats = [
+                    "%Y-%m-%d",
+                    "%d/%m/%Y",
+                    "%d-%m-%Y",
+                    "%m/%d/%Y",
+                ]
+
+                for date_format in date_formats:
+                    try:
+                        parsed_date = (
+                            datetime.strptime(
+                                value,
+                                date_format
+                            )
+                        )
+
+                        return parsed_date.strftime(
+                            "%d/%m/%Y"
+                        )
+
+                    except ValueError:
+                        continue
+
+            return str(value)
+
         try:
             numeric_value = float(value)
         except (
@@ -257,22 +308,19 @@ class MainWindow(QMainWindow):
             ValueError
         ):
             return str(value)
-    
+
         if number_format == "number":
             return f"{numeric_value:,.2f}"
-    
+
         if number_format == "integer":
             return f"{numeric_value:,.0f}"
-    
+
         if number_format == "currency":
             return f"${numeric_value:,.2f}"
-    
+
         if number_format == "percentage":
             return f"{numeric_value * 100:.2f}%"
-    
-        if number_format == "date":
-            return str(value)
-    
+
         return str(value)
     
     def refresh_view(self, index):
