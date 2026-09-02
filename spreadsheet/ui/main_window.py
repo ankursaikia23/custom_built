@@ -110,6 +110,9 @@ class MainWindow(QMainWindow):
         self.toolbar.vertical_alignment_combo.currentTextChanged.connect(
             self.handle_vertical_alignment
         )
+        self.toolbar.number_format_combo.currentTextChanged.connect(
+            self.handle_number_format
+        )
         self.copy_shortcut = QShortcut(
             QKeySequence("Ctrl+C"),
             self
@@ -234,6 +237,43 @@ class MainWindow(QMainWindow):
         self.status_label.setText(
             f"{reference} = {value}"
         )
+        
+    def format_display_value(
+        self,
+        value,
+        number_format
+    ):
+    
+        if value is None:
+            return ""
+    
+        if number_format == "general":
+            return str(value)
+    
+        try:
+            numeric_value = float(value)
+        except (
+            TypeError,
+            ValueError
+        ):
+            return str(value)
+    
+        if number_format == "number":
+            return f"{numeric_value:,.2f}"
+    
+        if number_format == "integer":
+            return f"{numeric_value:,.0f}"
+    
+        if number_format == "currency":
+            return f"${numeric_value:,.2f}"
+    
+        if number_format == "percentage":
+            return f"{numeric_value * 100:.2f}%"
+    
+        if number_format == "date":
+            return str(value)
+    
+        return str(value)
     
     def refresh_view(self, index):
         view = self.views[index]
@@ -295,9 +335,14 @@ class MainWindow(QMainWindow):
                             is not None
                         ):
     
+                            display_value = (
+                                cell.calculated_value
+                            )
+    
                             item.setText(
-                                str(
-                                    cell.calculated_value
+                                self.format_display_value(
+                                    display_value,
+                                    cell.format.number_format
                                 )
                             )
     
@@ -307,9 +352,12 @@ class MainWindow(QMainWindow):
     
                     else:
     
+                        display_value = cell.value
+    
                         item.setText(
-                            str(
-                                cell.value
+                            self.format_display_value(
+                                display_value,
+                                cell.format.number_format
                             )
                         )
     
@@ -543,9 +591,14 @@ class MainWindow(QMainWindow):
                             is not None
                         ):
     
+                            display_value = (
+                                cell.calculated_value
+                            )
+    
                             item.setText(
-                                str(
-                                    cell.calculated_value
+                                self.format_display_value(
+                                    display_value,
+                                    cell.format.number_format
                                 )
                             )
     
@@ -555,9 +608,12 @@ class MainWindow(QMainWindow):
     
                     else:
     
+                        display_value = cell.value
+    
                         item.setText(
-                            str(
-                                cell.value
+                            self.format_display_value(
+                                display_value,
+                                cell.format.number_format
                             )
                         )
     
@@ -901,6 +957,31 @@ class MainWindow(QMainWindow):
             vertical_alignment=value
         )
         
+    def handle_number_format(self):
+        format_map = {
+            "General": "general",
+            "Number": "number",
+            "Integer": "integer",
+            "Currency": "currency",
+            "Percentage": "percentage",
+            "Date": "date",
+        }
+
+        selected_format = (
+            self.toolbar.number_format_combo.currentText()
+        )
+
+        number_format = format_map.get(
+            selected_format
+        )
+
+        if number_format is None:
+            return
+
+        self.apply_formatting(
+            number_format=number_format
+        )
+        
     def apply_cell_format(
         self,
         cell,
@@ -1075,7 +1156,8 @@ class MainWindow(QMainWindow):
         text_color=None,
         background_color=None,
         horizontal_alignment=None,
-        vertical_alignment=None
+        vertical_alignment=None,
+        number_format=None
     ):
     
         index = self.sheet_tabs.currentIndex()
@@ -1097,7 +1179,8 @@ class MainWindow(QMainWindow):
             text_color=text_color,
             background_color=background_color,
             horizontal_alignment=horizontal_alignment,
-            vertical_alignment=vertical_alignment
+            vertical_alignment=vertical_alignment,
+            number_format=number_format
         )
     
         self.history.execute(command)

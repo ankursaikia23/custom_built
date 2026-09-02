@@ -1,7 +1,6 @@
 from .base import Command
 
 class FormatCellsCommand(Command):
-
     def __init__(
         self,
         sheet,
@@ -14,11 +13,11 @@ class FormatCellsCommand(Command):
         text_color=None,
         background_color=None,
         horizontal_alignment=None,
-        vertical_alignment=None
+        vertical_alignment=None,
+        number_format=None
     ):
         self.sheet = sheet
         self.references = list(references)
-
         self.bold = bold
         self.italic = italic
         self.underline = underline
@@ -26,48 +25,27 @@ class FormatCellsCommand(Command):
         self.font_size = font_size
         self.text_color = text_color
         self.background_color = background_color
-
-        self.horizontal_alignment = (
-            horizontal_alignment
-        )
-
-        self.vertical_alignment = (
-            vertical_alignment
-        )
-
+        self.horizontal_alignment = horizontal_alignment
+        self.vertical_alignment = vertical_alignment
+        self.number_format = number_format
         self.old_formats = {}
         self.new_formats = {}
-
         self.initialized = False
 
     def _initialize(self):
-
         for reference in self.references:
-
-            cell = self.sheet.get_cell(
-                reference
-            )
-
+            cell = self.sheet.get_cell(reference)
             if cell is None:
                 continue
-
-            self.old_formats[reference] = (
-                cell.format.copy()
-            )
-
+            self.old_formats[reference] = cell.format.copy()
         self.initialized = True
 
     def execute(self):
-
         if not self.initialized:
             self._initialize()
 
         for reference in self.references:
-
-            cell = self.sheet.get_cell(
-                reference
-            )
-
+            cell = self.sheet.get_cell(reference)
             if cell is None:
                 continue
 
@@ -78,87 +56,47 @@ class FormatCellsCommand(Command):
                 cell.format.italic = self.italic
 
             if self.underline is not None:
-                cell.format.underline = (
-                    self.underline
-                )
+                cell.format.underline = self.underline
 
             if self.font_family is not None:
-                cell.format.font_family = (
-                    self.font_family
-                )
+                cell.format.font_family = self.font_family
 
             if self.font_size is not None:
-                cell.format.font_size = (
-                    self.font_size
-                )
+                cell.format.font_size = self.font_size
 
             if self.text_color is not None:
-                cell.format.text_color = (
-                    self.text_color
-                )
+                cell.format.text_color = self.text_color
 
             if self.background_color is not None:
-                cell.format.background_color = (
-                    self.background_color
-                )
+                cell.format.background_color = self.background_color
 
-            if (
-                self.horizontal_alignment
-                is not None
-            ):
-                cell.format.horizontal_alignment = (
-                    self.horizontal_alignment
-                )
+            if self.horizontal_alignment is not None:
+                cell.format.horizontal_alignment = self.horizontal_alignment
 
-            if (
-                self.vertical_alignment
-                is not None
-            ):
-                cell.format.vertical_alignment = (
-                    self.vertical_alignment
-                )
+            if self.vertical_alignment is not None:
+                cell.format.vertical_alignment = self.vertical_alignment
+
+            if self.number_format is not None:
+                cell.format.number_format = self.number_format
 
         self.new_formats = {}
 
         for reference in self.references:
-
-            cell = self.sheet.get_cell(
-                reference
-            )
-
+            cell = self.sheet.get_cell(reference)
             if cell is None:
                 continue
-
-            self.new_formats[reference] = (
-                cell.format.copy()
-            )
+            self.new_formats[reference] = cell.format.copy()
 
     def undo(self):
-
-        for reference, old_format in (
-            self.old_formats.items()
-        ):
-
-            cell = self.sheet.get_cell(
-                reference
-            )
-
+        for reference, old_format in self.old_formats.items():
+            cell = self.sheet.get_cell(reference)
             if cell is None:
                 continue
-
             cell.format = old_format.copy()
 
     def redo(self):
-
-        for reference, new_format in (
-            self.new_formats.items()
-        ):
-
-            cell = self.sheet.get_cell(
-                reference
-            )
-
+        for reference, new_format in self.new_formats.items():
+            cell = self.sheet.get_cell(reference)
             if cell is None:
                 continue
-
             cell.format = new_format.copy()
