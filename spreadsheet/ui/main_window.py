@@ -113,6 +113,20 @@ class MainWindow(QMainWindow):
         self.toolbar.number_format_combo.currentTextChanged.connect(
             self.handle_number_format
         )
+        self.toolbar.border_side_combo.currentTextChanged.connect(
+            self.handle_border_format
+        )
+        self.toolbar.border_side_combo.currentTextChanged.connect(
+            self.handle_border_format
+        )
+        
+        self.toolbar.border_style_combo.currentTextChanged.connect(
+            self.handle_border_format
+        )
+        
+        self.toolbar.border_width_combo.currentTextChanged.connect(
+            self.handle_border_format
+        )
         self.copy_shortcut = QShortcut(
             QKeySequence("Ctrl+C"),
             self
@@ -1035,117 +1049,75 @@ class MainWindow(QMainWindow):
         cell,
         item
     ):
-    
+
         if cell is None or item is None:
             return
-    
+
         cell_format = cell.format
-    
-        # ==========================================
-        # Font
-        # ==========================================
-    
+
         font = item.font()
-    
-        font.setFamily(
-            cell_format.font_family
-        )
-    
+        font.setFamily(cell_format.font_family)
         font.setPointSize(
             int(cell_format.font_size)
         )
-    
-        font.setBold(
-            cell_format.bold
-        )
-    
-        font.setItalic(
-            cell_format.italic
-        )
-    
-        font.setUnderline(
-            cell_format.underline
-        )
-    
-        item.setFont(
-            font
-        )
-    
-        # ==========================================
-        # Text color
-        # ==========================================
-    
+        font.setBold(cell_format.bold)
+        font.setItalic(cell_format.italic)
+        font.setUnderline(cell_format.underline)
+        item.setFont(font)
+
         item.setForeground(
-            QColor(
-                cell_format.text_color
-            )
+            QColor(cell_format.text_color)
         )
- 
-        # ==========================================
-        # Background color
-        # ==========================================
-        
+
         item.setBackground(
-            QColor(
-                cell_format.background_color
-            )
+            QColor(cell_format.background_color)
         )
-    
-        # ==========================================
-        # Horizontal alignment
-        # ==========================================
-    
+
         horizontal_alignment = (
             cell_format.horizontal_alignment
         )
-    
+
         if horizontal_alignment == "left":
-    
             horizontal_flag = (
                 Qt.AlignmentFlag.AlignLeft
             )
-    
         elif horizontal_alignment == "center":
-    
             horizontal_flag = (
                 Qt.AlignmentFlag.AlignHCenter
             )
-    
         else:
-    
             horizontal_flag = (
                 Qt.AlignmentFlag.AlignRight
             )
-    
-        # ==========================================
-        # Vertical alignment
-        # ==========================================
-    
+
         vertical_alignment = (
             cell_format.vertical_alignment
         )
-    
+
         if vertical_alignment == "top":
-    
             vertical_flag = (
                 Qt.AlignmentFlag.AlignTop
             )
-    
         elif vertical_alignment == "center":
-    
             vertical_flag = (
                 Qt.AlignmentFlag.AlignVCenter
             )
-    
         else:
-    
             vertical_flag = (
                 Qt.AlignmentFlag.AlignBottom
             )
-    
+
         item.setTextAlignment(
-            horizontal_flag
-            | vertical_flag
+            horizontal_flag | vertical_flag
+        )
+
+        item.setData(
+            Qt.ItemDataRole.UserRole + 1,
+            {
+                side: border.copy()
+                for side, border
+                in cell_format.borders.items()
+            }
         )
         
     def handle_font_family(self, family):
@@ -1194,6 +1166,63 @@ class MainWindow(QMainWindow):
             background_color=color.name().upper()
         )
         
+    def handle_border_format(self):
+    
+        side_map = {
+            "Top": "top",
+            "Bottom": "bottom",
+            "Left": "left",
+            "Right": "right",
+        }
+    
+        style_map = {
+            "Solid": "solid",
+            "Dashed": "dashed",
+            "Dotted": "dotted",
+            "Double": "double",
+        }
+    
+        selected_side = (
+            self.toolbar.border_side_combo.currentText()
+        )
+    
+        if selected_side == "None":
+            return
+    
+        border_side = side_map.get(
+            selected_side
+        )
+    
+        if border_side is None:
+            return
+    
+        selected_style = (
+            self.toolbar.border_style_combo.currentText()
+        )
+    
+        border_style = style_map.get(
+            selected_style
+        )
+    
+        if border_style is None:
+            return
+    
+        try:
+    
+            border_width = int(
+                self.toolbar.border_width_combo.currentText()
+            )
+    
+        except ValueError:
+    
+            return
+    
+        self.apply_formatting(
+            border_side=border_side,
+            border_style=border_style,
+            border_width=border_width
+        )
+        
     def apply_formatting(
         self,
         bold=None,
@@ -1205,7 +1234,12 @@ class MainWindow(QMainWindow):
         background_color=None,
         horizontal_alignment=None,
         vertical_alignment=None,
-        number_format=None
+        number_format=None,
+        border_side=None,
+        border_style="solid",
+        border_width=1,
+        border_color="#000000",
+        remove_border=False
     ):
     
         index = self.sheet_tabs.currentIndex()
@@ -1228,7 +1262,12 @@ class MainWindow(QMainWindow):
             background_color=background_color,
             horizontal_alignment=horizontal_alignment,
             vertical_alignment=vertical_alignment,
-            number_format=number_format
+            number_format=number_format,
+            border_side=border_side,
+            border_style=border_style,
+            border_width=border_width,
+            border_color=border_color,
+            remove_border=remove_border
         )
     
         self.history.execute(command)

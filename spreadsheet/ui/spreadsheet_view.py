@@ -1,5 +1,148 @@
-from PyQt6.QtWidgets import QTableWidget
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtWidgets import (
+    QTableWidget,
+    QStyledItemDelegate
+)
+from PyQt6.QtCore import (
+    Qt,
+    pyqtSignal
+)
+from PyQt6.QtGui import (
+    QPen,
+    QColor
+)
+
+
+class BorderDelegate(QStyledItemDelegate):
+
+    def paint(
+        self,
+        painter,
+        option,
+        index
+    ):
+
+        super().paint(
+            painter,
+            option,
+            index
+        )
+
+        borders = index.data(
+            Qt.ItemDataRole.UserRole + 1
+        )
+
+        if not borders:
+            return
+
+        painter.save()
+
+        rect = option.rect
+
+        style_map = {
+            "solid": Qt.PenStyle.SolidLine,
+            "dashed": Qt.PenStyle.DashLine,
+            "dotted": Qt.PenStyle.DotLine
+        }
+
+        for side, border in borders.items():
+
+            if side not in (
+                "top",
+                "bottom",
+                "left",
+                "right"
+            ):
+                continue
+
+            style = border.get(
+                "style",
+                "solid"
+            )
+
+            width = max(
+                1,
+                int(
+                    border.get(
+                        "width",
+                        1
+                    )
+                )
+            )
+
+            color = QColor(
+                border.get(
+                    "color",
+                    "#000000"
+                )
+            )
+
+            pen = QPen(
+                color
+            )
+
+            pen.setWidth(
+                width
+            )
+
+            pen.setStyle(
+                style_map.get(
+                    style,
+                    Qt.PenStyle.SolidLine
+                )
+            )
+
+            painter.setPen(
+                pen
+            )
+
+            half_width = width // 2
+
+            if side == "top":
+
+                y = rect.top() + half_width
+
+                painter.drawLine(
+                    rect.left(),
+                    y,
+                    rect.right(),
+                    y
+                )
+
+            elif side == "bottom":
+
+                y = rect.bottom() - half_width
+
+                painter.drawLine(
+                    rect.left(),
+                    y,
+                    rect.right(),
+                    y
+                )
+
+            elif side == "left":
+
+                x = rect.left() + half_width
+
+                painter.drawLine(
+                    x,
+                    rect.top(),
+                    x,
+                    rect.bottom()
+                )
+
+            elif side == "right":
+
+                x = rect.right() - half_width
+
+                painter.drawLine(
+                    x,
+                    rect.top(),
+                    x,
+                    rect.bottom()
+                )
+
+        painter.restore()
+
 
 class SpreadsheetView(QTableWidget):
 
@@ -16,6 +159,14 @@ class SpreadsheetView(QTableWidget):
 
         self.verticalHeader().setDefaultSectionSize(24)
         self.horizontalHeader().setDefaultSectionSize(90)
+
+        # ==========================================
+        # Border rendering
+        # ==========================================
+
+        self.setItemDelegate(
+            BorderDelegate(self)
+        )
 
         # ==========================================
         # Selection

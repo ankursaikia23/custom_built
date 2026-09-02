@@ -96,3 +96,38 @@ class SpreadsheetToolbar(QToolBar):
         ])
         self.number_format_combo.setCurrentText("General")
         self.addWidget(self.number_format_combo)
+        self.border_side_combo = QComboBox()
+        self.border_side_combo.addItems([
+            "None",
+            "Top",
+            "Bottom",
+            "Left",
+            "Right",
+        ])
+        self.border_side_combo.setCurrentText("None")
+        self.addWidget(self.border_side_combo)
+        
+        self.border_style_combo = QComboBox()
+        self.border_style_combo.addItems([
+            "Solid",
+            "Dashed",
+            "Dotted",
+            "Double",
+        ])
+        self.border_style_combo.setCurrentText("Solid")
+        self.addWidget(self.border_style_combo)
+        
+        self.border_width_combo = QComboBox()
+        self.border_width_combo.addItems([
+            "1",
+            "2",
+            "3",
+        ])
+        self.border_width_combo.setCurrentText("1")
+        self.addWidget(self.border_width_combo)
+        
+        self.border_color_action = QAction(
+            "Border Color",
+            self
+        )
+        self.addAction(self.border_color_action)
