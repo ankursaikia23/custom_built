@@ -20,6 +20,10 @@ from commands.copy_paste import Clipboard
 from commands.paste_cells import PasteCellsCommand
 from PyQt6.QtGui import QShortcut, QKeySequence, QColor
 from commands.format_cells import FormatCellsCommand
+from commands.merge_cells import (
+    MergeCellsCommand,
+    UnmergeCellsCommand
+)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -1093,7 +1097,10 @@ class MainWindow(QMainWindow):
         coordinates = []
     
         for reference in references:
-            column, row = sheet.split_reference(reference)
+    
+            column, row = sheet.split_reference(
+                reference
+            )
     
             coordinates.append(
                 (
@@ -1132,20 +1139,26 @@ class MainWindow(QMainWindow):
             f"{end_row}"
         )
     
+        command = MergeCellsCommand(
+            sheet,
+            start_reference,
+            end_reference
+        )
+    
         try:
-            sheet.merge_cells(
-                start_reference,
-                end_reference
+    
+            self.history.execute(
+                command
             )
-        
+    
             self.refresh_current_view()
-        
+    
             self.status_label.setText(
                 f"Merged {start_reference}:{end_reference}"
             )
-        
+    
         except ValueError as error:
-        
+    
             self.status_label.setText(
                 str(error)
             )
@@ -1162,30 +1175,48 @@ class MainWindow(QMainWindow):
         merge_range = None
     
         for reference in references:
-            merge_range = sheet.get_merge_range(reference)
+    
+            merge_range = sheet.get_merge_range(
+                reference
+            )
     
             if merge_range is not None:
                 break
     
         if merge_range is None:
+    
             self.status_label.setText(
                 "Selected cells are not merged"
             )
+    
             return
     
         start_reference = merge_range[0]
         end_reference = merge_range[1]
     
-        sheet.unmerge_cells(
+        command = UnmergeCellsCommand(
+            sheet,
             start_reference,
             end_reference
         )
-        
-        self.refresh_current_view()
-        
-        self.status_label.setText(
-            f"Unmerged {start_reference}:{end_reference}"
-        )
+    
+        try:
+    
+            self.history.execute(
+                command
+            )
+    
+            self.refresh_current_view()
+    
+            self.status_label.setText(
+                f"Unmerged {start_reference}:{end_reference}"
+            )
+    
+        except ValueError as error:
+    
+            self.status_label.setText(
+                str(error)
+            )
         
     def handle_number_format(self):
         format_map = {
