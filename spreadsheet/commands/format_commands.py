@@ -10,30 +10,23 @@ class FormatCellCommand:
 
     def execute(self):
         cell = self.sheet.get_cell(self.reference)
-
         if cell is None:
             raise ValueError(
                 f"Cell does not exist: {self.reference}"
             )
-
         if self.before is None:
             self.before = deepcopy(cell.format)
-
         for key, value in self.changes.items():
             setattr(cell.format, key, value)
-
         self.after = deepcopy(cell.format)
 
     def undo(self):
         cell = self.sheet.get_cell(self.reference)
-
         if cell is None:
             raise ValueError(
                 f"Cell does not exist: {self.reference}"
             )
-
         cell.format = deepcopy(self.before)
-
 
 class RowHeightCommand:
     def __init__(self, sheet, row, height):
@@ -45,12 +38,10 @@ class RowHeightCommand:
     def execute(self):
         if self.before is None:
             self.before = self.sheet.get_row_height(self.row)
-
         self.sheet.set_row_height(self.row, self.height)
 
     def undo(self):
         self.sheet.set_row_height(self.row, self.before)
-
 
 class ColumnWidthCommand:
     def __init__(self, sheet, column, width):
@@ -62,7 +53,6 @@ class ColumnWidthCommand:
     def execute(self):
         if self.before is None:
             self.before = self.sheet.get_column_width(self.column)
-
         self.sheet.set_column_width(self.column, self.width)
 
     def undo(self):

@@ -15,7 +15,6 @@ class Sheet:
 
     def set_cell(self, reference, value):
         reference = self._normalize_reference(reference)
-    
         if reference not in self.cells:
             self.cells[reference] = Cell(
                 reference,
@@ -24,53 +23,41 @@ class Sheet:
         else:
             cell = self.cells[reference]
             cell.value = value
-            cell.calculated_value = None
-    
+            cell.calculated_value = None    
         if self.workbook is not None:
-    
             qualified_reference = (
                 f"{self.name}!{reference}"
             )
-    
             self.workbook.recalculation_manager.register_formula(
                 qualified_reference,
                 value
             )
-    
             self.workbook.recalculation_manager.recalculate_from(
                 reference,
                 sheet=self
             )
-    
-        return self.cells[reference]
-    
+        return self.cells[reference]    
     
     def get_cell(self, reference):
         reference = self._normalize_reference(reference)
         return self.cells.get(reference)
     
-    
     def delete_cell(self, reference):
         reference = self._normalize_reference(reference)
-    
         cell = self.cells.pop(
             reference,
             None
         )
-    
         if (
             cell is not None
             and self.workbook is not None
         ):
-    
             qualified_reference = (
                 f"{self.name}!{reference}"
             )
-    
             self.workbook.recalculation_manager.remove_formula(
                 qualified_reference
             )
-    
         return cell
 
     def set_row_height(self,row,height):
@@ -154,11 +141,8 @@ class Sheet:
         new_range=(normalized_start,normalized_end)
         if new_range in self.merged_ranges:
             return
-        
-        overlapping_ranges = []
-        
+        overlapping_ranges = []        
         for existing_range in self.merged_ranges:
-        
             if self.range_overlaps_merge(
                 (
                     existing_range[0],
@@ -167,37 +151,28 @@ class Sheet:
             ) and self.range_overlaps_merge(
                 new_range
             ):
-        
                 overlapping_ranges.append(
                     existing_range
                 )
-        
         if overlapping_ranges:
-        
             ranges = overlapping_ranges + [new_range]
-        
             rows = []
             columns = []
-        
             for merge_range in ranges:
-        
                 merge_start_column, merge_start_row = (
                     self.split_reference(
                         merge_range[0]
                     )
                 )
-        
                 merge_end_column, merge_end_row = (
                     self.split_reference(
                         merge_range[1]
                     )
                 )
-        
                 rows.extend([
                     merge_start_row,
                     merge_end_row
                 ])
-        
                 columns.extend([
                     self.column_number(
                         merge_start_column
@@ -206,29 +181,22 @@ class Sheet:
                         merge_end_column
                     )
                 ])
-        
             start_row = min(rows)
             end_row = max(rows)
-        
             start_column = min(columns)
             end_column = max(columns)
-        
             combined_range = (
                 f"{self.column_name(start_column)}{start_row}",
                 f"{self.column_name(end_column)}{end_row}"
             )
-        
             for merge_range in overlapping_ranges:
                 self.merged_ranges.remove(
                     merge_range
                 )
-        
             self.merged_ranges.append(
                 combined_range
             )
-        
             return
-        
         self.merged_ranges.append(new_range)
 
     def unmerge_cells(self,start_reference,end_reference):
@@ -450,16 +418,12 @@ class Sheet:
             raise ValueError(
                 "Cell reference must be a non-empty string"
             )
-    
         reference = reference.strip()
-    
         if not reference:
             raise ValueError(
                 "Cell reference must be a non-empty string"
             )
-    
         column, row = self.split_reference(reference)
-    
         return f"{column}{row}"
 
     def column_number(self,column):

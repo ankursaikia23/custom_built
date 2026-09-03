@@ -10,6 +10,6 @@ class Cell:
         self.value = value
         self.format = CellFormat()
 
-        # Cached result of formula evaluation.
-        # The original formula remains in `value`.
+        # CACHED RESULT OF FORMULA EVALUATION
+        # THE ORIGINAL FORMULA REMIANS IN "VALUE"
         self.calculated_value = None

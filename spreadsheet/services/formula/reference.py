@@ -1,4 +1,5 @@
 import re
+
 def adjust_reference(reference,row_offset,column_offset):
     match=re.fullmatch(r"(\$?)([A-Za-z]+)(\$?)(\d+)",reference)
     if not match:
@@ -16,16 +17,19 @@ def adjust_reference(reference,row_offset,column_offset):
         if new_row<1:
             raise ValueError("Adjusted row is invalid")
     return f"{column_absolute}{new_column}{row_absolute}{new_row}"
+
 def adjust_formula(formula,row_offset,column_offset):
     if not isinstance(formula,str) or not formula.startswith("="):
         return formula
     pattern=r"(\$?[A-Za-z]+\$?\d+)"
     return re.sub(pattern,lambda match:adjust_reference(match.group(1),row_offset,column_offset),formula)
+
 def column_number(column):
     result=0
     for letter in column.upper():
         result=result*26+(ord(letter)-64)
     return result
+
 def column_name(column):
     result=""
     while column:

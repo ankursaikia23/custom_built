@@ -1,5 +1,6 @@
 from copy import deepcopy
 from services.formula.reference import adjust_formula
+
 class Autofill:
     def fill(self,sheet,start_reference,end_reference):
         start_column,start_row=sheet.split_reference(start_reference)
@@ -16,6 +17,7 @@ class Autofill:
             self.fill_horizontal(sheet,start_column_number,end_column_number,start_row)
         else:
             raise ValueError("Autofill requires a single row or single column")
+    
     def fill_vertical(self,sheet,column_number,start_row,end_row):
         source_cells=[]
         for row in range(start_row,end_row+1):
@@ -44,6 +46,7 @@ class Autofill:
         else:
             for row in range(second_row+1,end_row+1):
                 self._place_value(sheet,second_cell,row,column_number,second_cell.value)
+    
     def fill_horizontal(self,sheet,start_column_number,end_column_number,row):
         source_cells=[]
         for column_number in range(start_column_number,end_column_number+1):
@@ -100,12 +103,14 @@ class Autofill:
                     column_number,
                     second_cell.value
                 )
+    
     def _place(self,sheet,source_cell,source_row,target_row,source_column_number):
         copied=deepcopy(source_cell)
         if isinstance(copied.value,str) and copied.value.startswith("="):
             copied.value=adjust_formula(copied.value,target_row-source_row,0)
         copied.reference=f"{sheet.column_name(source_column_number)}{target_row}"
         sheet.cells[copied.reference]=copied
+    
     def _place_value(self,sheet,source_cell,row,column_number,value):
         copied=deepcopy(source_cell)
         copied.value=value

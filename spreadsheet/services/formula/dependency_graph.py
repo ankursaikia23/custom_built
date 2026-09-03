@@ -13,30 +13,23 @@ class DependencyGraph:
             cell,
             set()
         )
-
         for dependency in old_dependencies:
             dependent_cells = self.dependents.get(
                 dependency
             )
-
             if dependent_cells is not None:
                 dependent_cells.discard(cell)
-
                 if not dependent_cells:
                     del self.dependents[dependency]
-
         normalized_dependencies = set(
             dependencies
         )
-
         self.dependencies[cell] = (
             normalized_dependencies
         )
-
         for dependency in normalized_dependencies:
             if dependency not in self.dependents:
                 self.dependents[dependency] = set()
-
             self.dependents[dependency].add(cell)
 
     def set_formula_dependencies(
@@ -48,24 +41,21 @@ class DependencyGraph:
             node = self.parser.parse(
                 formula
             )
-        
             dependencies = (
                 self.analyzer.get_dependencies(node)
             )
-        
         except (
             ValueError,
             TypeError
         ):
-            # Invalid formula syntax should not
-            # crash the application. However, the
-            # formula itself remains stored in the cell.
+            # INVALID FORMULA SYNTAX SHOULD NOT
+            # CRASH THE APPLICATION, HOWEVER THE
+            # FORMAULA ITSELF RERMAINS STORED IN THE CELL
             self.set_dependencies(
                 cell,
                 set()
             )
             return
-        
         except (
             ValueError,
             TypeError
@@ -75,20 +65,15 @@ class DependencyGraph:
                 set()
             )
             return
-
         sheet_name = None
-
         if "!" in cell:
             sheet_name = cell.rsplit(
                 "!",
                 1
             )[0].strip("'")
-
         normalized_dependencies = set()
-
         for dependency in dependencies:
             dependency = dependency.strip()
-
             if (
                 sheet_name is not None
                 and "!" not in dependency
@@ -96,11 +81,9 @@ class DependencyGraph:
                 dependency = (
                     f"{sheet_name}!{dependency}"
                 )
-
             normalized_dependencies.add(
                 dependency
             )
-
         self.set_dependencies(
             cell,
             normalized_dependencies
@@ -111,28 +94,22 @@ class DependencyGraph:
             cell,
             set()
         )
-
         for dependency in old_dependencies:
             dependent_cells = self.dependents.get(
                 dependency
             )
-
             if dependent_cells is not None:
                 dependent_cells.discard(cell)
-
                 if not dependent_cells:
                     del self.dependents[dependency]
-
         old_dependents = self.dependents.pop(
             cell,
             set()
         )
-
         for dependent in old_dependents:
             dependencies = self.dependencies.get(
                 dependent
             )
-
             if dependencies is not None:
                 dependencies.discard(cell)
 
@@ -155,17 +132,14 @@ class DependencyGraph:
     def get_recalculation_order(self, cell):
         affected = set()
         queue = [cell]
-
         while queue:
             current = queue.pop(0)
-
             for dependent in self.get_dependents(
                 current
             ):
                 if dependent not in affected:
                     affected.add(dependent)
                     queue.append(dependent)
-
         order = []
         visited = set()
         visiting = set()
@@ -173,27 +147,20 @@ class DependencyGraph:
         def visit(current):
             if current in visited:
                 return
-
             if current in visiting:
                 return
-
             visiting.add(current)
-
             for dependency in self.get_dependencies(
                 current
             ):
                 if dependency in affected:
                     visit(dependency)
-
             visiting.remove(current)
             visited.add(current)
-
             if current in affected:
                 order.append(current)
-
         for affected_cell in affected:
             visit(affected_cell)
-
         return order
 
     def clear(self):

@@ -22,22 +22,18 @@ class WorkbookSerializer:
     @staticmethod
     def _deserialize_format(data):
         from core.formatting import CellFormat
-
         cell_format = CellFormat()
-
         for key, value in data.items():
             setattr(
                 cell_format,
                 key,
                 deepcopy(value)
             )
-
         return cell_format
 
     @staticmethod
     def serialize(workbook):
         active_sheet = workbook.get_active_sheet()
-
         data = {
             "sheets": [],
             "active_sheet": (
@@ -46,7 +42,6 @@ class WorkbookSerializer:
                 else None
             ),
         }
-
         for sheet in workbook.sheets:
             sheet_data = {
                 "name": sheet.name,
@@ -54,7 +49,6 @@ class WorkbookSerializer:
                 "row_heights": deepcopy(sheet.row_heights),
                 "column_widths": deepcopy(sheet.column_widths),
             }
-
             for reference, cell in sheet.cells.items():
                 sheet_data["cells"][reference] = {
                     "value": deepcopy(cell.value),
@@ -62,17 +56,13 @@ class WorkbookSerializer:
                         cell.format
                     ),
                 }
-
             data["sheets"].append(sheet_data)
-
         return data
 
     @staticmethod
     def deserialize(data):
         from core.workbook import Workbook
-
         workbook = Workbook()
-
         for sheet_data in data.get("sheets", []):
             sheet = workbook.add_sheet(
                 sheet_data["name"]
@@ -84,7 +74,6 @@ class WorkbookSerializer:
                     {}
                 ).items()
             }
-            
             sheet.column_widths = {
                 str(column): width
                 for column, width in sheet_data.get(
@@ -92,36 +81,28 @@ class WorkbookSerializer:
                     {}
                 ).items()
             }
-
             for reference, cell_data in sheet_data.get(
                 "cells",
                 {}
             ).items():
-
                 sheet.set_cell(
                     reference,
                     deepcopy(
                         cell_data.get("value")
                     )
                 )
-
                 cell = sheet.get_cell(reference)
-
                 if cell is not None:
                     format_data = cell_data.get("format")
-
                     if format_data is not None:
                         cell.format = (
                             WorkbookSerializer._deserialize_format(
                                 format_data
                             )
                         )
-
         active_sheet = data.get("active_sheet")
-
         if active_sheet is not None:
             workbook.set_active_sheet(
                 active_sheet
             )
-
         return workbook

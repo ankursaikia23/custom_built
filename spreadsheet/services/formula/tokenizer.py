@@ -27,38 +27,29 @@ class Tokenizer:
     def tokenize(self, formula):
         if not isinstance(formula, str):
             raise TypeError("Formula must be a string")
-
         if formula.startswith("="):
             formula = formula[1:]
-
         pattern = "|".join(
             f"(?P<{name}>{regex})"
             for name, regex in self.TOKEN_SPECIFICATION
         )
-
         tokens = []
         position = 0
-
         while position < len(formula):
             match = re.match(
                 pattern,
                 formula[position:]
             )
-
             if not match:
                 raise ValueError(
                     f"Invalid character at position "
                     f"{position}: {formula[position]}"
                 )
-
             token_type = match.lastgroup
             value = match.group()
-
             position += len(value)
-            
             if token_type == "FUNCTION":
                 remaining = formula[position:]
-            
                 if not re.match(
                     r"\s*\(",
                     remaining
@@ -68,10 +59,8 @@ class Tokenizer:
                         value
                     ):
                         token_type = "CELL"
-
             if token_type == "WHITESPACE":
                 continue
-
             if token_type == "OPERATOR":
                 token_type = {
                     "+": "PLUS",
@@ -80,7 +69,6 @@ class Tokenizer:
                     "/": "DIVIDE",
                     "^": "POWER",
                 }[value]
-
             elif token_type == "COMPARISON":
                 token_type = {
                     "=": "EQUAL",
@@ -90,9 +78,7 @@ class Tokenizer:
                     ">=": "GREATER_EQUAL",
                     "<=": "LESS_EQUAL",
                 }[value]
-
             tokens.append(
                 Token(token_type, value)
             )
-
         return tokens

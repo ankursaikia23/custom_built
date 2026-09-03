@@ -1,11 +1,5 @@
 from PyQt6.QtWidgets import (
-    QMainWindow,
-    QVBoxLayout,
-    QWidget,
-    QTabWidget,
-    QLabel,
-    QTableWidgetItem,
-    QColorDialog
+    QMainWindow, QVBoxLayout, QWidget, QTabWidget, QLabel, QTableWidgetItem, QColorDialog
 )
 from PyQt6.QtCore import QSignalBlocker, Qt
 #from PyQt6.QtGui import QAction
@@ -21,8 +15,7 @@ from commands.paste_cells import PasteCellsCommand
 from PyQt6.QtGui import QShortcut, QKeySequence, QColor
 from commands.format_cells import FormatCellsCommand
 from commands.merge_cells import (
-    MergeCellsCommand,
-    UnmergeCellsCommand
+    MergeCellsCommand, UnmergeCellsCommand
 )
 
 class MainWindow(QMainWindow):
@@ -44,16 +37,13 @@ class MainWindow(QMainWindow):
             QKeySequence("Ctrl+Z"),
             self
         )
-        
         self.undo_shortcut.activated.connect(
             self.undo
         )
-        
         self.redo_shortcut = QShortcut(
             QKeySequence("Ctrl+Y"),
             self
         )
-        
         self.redo_shortcut.activated.connect(
             self.redo
         )
@@ -87,11 +77,9 @@ class MainWindow(QMainWindow):
         self.toolbar.bold_action.triggered.connect(
             self.handle_bold
         )
-        
         self.toolbar.italic_action.triggered.connect(
             self.handle_italic
         )
-        
         self.toolbar.underline_action.triggered.connect(
             self.handle_underline
         )
@@ -110,7 +98,6 @@ class MainWindow(QMainWindow):
         self.toolbar.horizontal_alignment_combo.currentTextChanged.connect(
             self.handle_horizontal_alignment
         )
-        
         self.toolbar.vertical_alignment_combo.currentTextChanged.connect(
             self.handle_vertical_alignment
         )
@@ -120,7 +107,6 @@ class MainWindow(QMainWindow):
         self.toolbar.merge_cells_action.triggered.connect(
             self.handle_merge_cells
         )
-        
         self.toolbar.unmerge_cells_action.triggered.connect(
             self.handle_unmerge_cells
         )
@@ -130,11 +116,9 @@ class MainWindow(QMainWindow):
         self.toolbar.border_side_combo.currentTextChanged.connect(
             self.handle_border_format
         )
-        
         self.toolbar.border_style_combo.currentTextChanged.connect(
             self.handle_border_format
         )
-        
         self.toolbar.border_width_combo.currentTextChanged.connect(
             self.handle_border_format
         )
@@ -142,7 +126,6 @@ class MainWindow(QMainWindow):
             QKeySequence("Ctrl+C"),
             self
         )
-        
         self.copy_shortcut.activated.connect(
             self.handle_copy
         )
@@ -150,7 +133,6 @@ class MainWindow(QMainWindow):
             QKeySequence("Ctrl+X"),
             self
         )
-        
         self.cut_shortcut.activated.connect(
             self.handle_cut
         )
@@ -158,7 +140,6 @@ class MainWindow(QMainWindow):
             QKeySequence("Ctrl+V"),
             self
         )
-        
         self.paste_shortcut.activated.connect(
             self.handle_paste
         )
@@ -173,37 +154,29 @@ class MainWindow(QMainWindow):
     def handle_cell_changed(self, row, column):
         index = self.sheet_tabs.currentIndex()
         sheet = self.workbook.sheets[index]
-    
         reference = (
             f"{chr(65 + column)}"
             f"{row + 1}"
         )
-    
         item = self.views[index].item(
             row,
             column
         )
-    
         value = (
             item.text()
             if item
             else ""
         )
-    
         command = EditCellCommand(
             sheet,
             reference,
             value
         )
-    
         self.history.execute(
             command
         )
-    
-        # ==============================================
-        # Refresh affected sheets
-        # ==============================================
-    
+
+        # REFRESH AFFECTED SHEETS
         results = (
             self.workbook
             .recalculation_manager
@@ -212,53 +185,40 @@ class MainWindow(QMainWindow):
                 sheet=sheet
             )
         )
-    
         affected_sheets = {
             sheet
         }
-    
         for qualified_reference in results:
-    
             if "!" not in qualified_reference:
                 continue
-    
             sheet_name = (
                 qualified_reference
                 .rsplit("!", 1)[0]
                 .strip("'")
             )
-    
             target_sheet = (
                 self.workbook.get_sheet(
                     sheet_name
                 )
             )
-    
             if target_sheet is not None:
                 affected_sheets.add(
                     target_sheet
                 )
-    
         for affected_sheet in affected_sheets:
-    
             affected_index = (
                 self.workbook.sheets.index(
                     affected_sheet
                 )
             )
-    
             self.refresh_view(
                 affected_index
             )
     
-        # ==============================================
-        # Restore formula bar
-        # ==============================================
-    
+        # RESTORE FORMULA BAR  
         self.formula_bar.setText(
             value
         )
-    
         self.status_label.setText(
             f"{reference} = {value}"
         )
@@ -268,19 +228,15 @@ class MainWindow(QMainWindow):
         value,
         number_format
     ):
-
         if value is None:
             return ""
-
         if number_format == "general":
             return str(value)
-
         if number_format == "date":
             from datetime import (
                 date,
                 datetime
             )
-
             if isinstance(
                 value,
                 datetime
@@ -288,7 +244,6 @@ class MainWindow(QMainWindow):
                 return value.strftime(
                     "%d/%m/%Y"
                 )
-
             if isinstance(
                 value,
                 date
@@ -296,7 +251,6 @@ class MainWindow(QMainWindow):
                 return value.strftime(
                     "%d/%m/%Y"
                 )
-
             if isinstance(
                 value,
                 str
@@ -307,7 +261,6 @@ class MainWindow(QMainWindow):
                     "%d-%m-%Y",
                     "%m/%d/%Y",
                 ]
-
                 for date_format in date_formats:
                     try:
                         parsed_date = (
@@ -316,16 +269,12 @@ class MainWindow(QMainWindow):
                                 date_format
                             )
                         )
-
                         return parsed_date.strftime(
                             "%d/%m/%Y"
                         )
-
                     except ValueError:
                         continue
-
             return str(value)
-
         try:
             numeric_value = float(value)
         except (
@@ -333,68 +282,50 @@ class MainWindow(QMainWindow):
             ValueError
         ):
             return str(value)
-
         if number_format == "number":
             return f"{numeric_value:,.2f}"
-
         if number_format == "integer":
             return f"{numeric_value:,.0f}"
-
         if number_format == "currency":
             return f"${numeric_value:,.2f}"
-
         if number_format == "percentage":
             return f"{numeric_value * 100:.2f}%"
-
         return str(value)
     
     def refresh_view(self, index):
         view = self.views[index]
         sheet = self.workbook.sheets[index]
-    
         with QSignalBlocker(view):
-    
             for row in range(
                 view.rowCount()
             ):
-    
                 for column in range(
                     view.columnCount()
                 ):
-    
                     reference = (
                         f"{chr(65 + column)}"
                         f"{row + 1}"
                     )
-    
                     cell = sheet.get_cell(
                         reference
                     )
-    
                     if cell is None:
-    
                         view.takeItem(
                             row,
                             column
                         )
-    
                         continue
-    
                     item = view.item(
                         row,
                         column
                     )
-    
                     if item is None:
-    
                         item = QTableWidgetItem()
-    
                         view.setItem(
                             row,
                             column,
                             item
                         )
-    
                     if (
                         isinstance(
                             cell.value,
@@ -402,38 +333,29 @@ class MainWindow(QMainWindow):
                         )
                         and cell.value.startswith("=")
                     ):
-    
                         if (
                             cell.calculated_value
                             is not None
                         ):
-    
                             display_value = (
                                 cell.calculated_value
                             )
-    
                             item.setText(
                                 self.format_display_value(
                                     display_value,
                                     cell.format.number_format
                                 )
                             )
-    
                         else:
-    
                             item.setText("")
-    
                     else:
-    
                         display_value = cell.value
-    
                         item.setText(
                             self.format_display_value(
                                 display_value,
                                 cell.format.number_format
                             )
-                        )
-    
+                        )    
                     self.apply_cell_format(
                         cell,
                         item
@@ -515,45 +437,34 @@ class MainWindow(QMainWindow):
         view,
         reference
     ):
-    
         cell = sheet.get_cell(
             reference
         )
-    
         if cell is None:
             return
-    
         column, row = (
             sheet.split_reference(
                 reference
             )
-        )
-    
+        )    
         column_index = (
             sheet.column_number(
                 column
             ) - 1
         )
-    
         row_index = row - 1
-    
         item = view.item(
             row_index,
             column_index
         )
-    
         if item is None:
-    
             item = QTableWidgetItem()
-    
             with QSignalBlocker(view):
-    
                 view.setItem(
                     row_index,
                     column_index,
                     item
                 )
-    
         if (
             isinstance(
                 cell.value,
@@ -562,21 +473,17 @@ class MainWindow(QMainWindow):
             and cell.value.startswith("=")
             and cell.calculated_value is not None
         ):
-    
             item.setText(
                 str(
                     cell.calculated_value
                 )
             )
-    
         else:
-    
             item.setText(
                 str(
                     cell.value
                 )
             )
-    
         self.apply_cell_format(
             cell,
             item
@@ -584,74 +491,54 @@ class MainWindow(QMainWindow):
     
     def undo(self):
         command = self.history.undo()
-    
         if command is None:
             return
-    
         self.refresh_current_view()
-    
-    
+        
     def redo(self):
         command = self.history.redo()
-    
         if command is None:
             return
-    
         self.refresh_current_view()
     
     def refresh_current_view(self):
-    
         index = (
             self.sheet_tabs.currentIndex()
         )
-    
         view = self.views[index]
         sheet = self.workbook.sheets[index]
         view.clearSpans()
-    
         with QSignalBlocker(view):
-    
             for row in range(
                 view.rowCount()
             ):
-    
                 for column in range(
                     view.columnCount()
                 ):
-    
                     reference = (
                         f"{chr(65 + column)}"
                         f"{row + 1}"
                     )
-    
                     cell = sheet.get_cell(
                         reference
                     )
-    
                     if cell is None:
-    
                         view.takeItem(
                             row,
                             column
                         )
-    
                         continue
-    
                     item = view.item(
                         row,
                         column
                     )
-    
                     if item is None:
-    
                         item = QTableWidgetItem()
-    
                         view.setItem(
                             row,
                             column,
                             item
                         )
-    
                     if (
                         isinstance(
                             cell.value,
@@ -659,101 +546,78 @@ class MainWindow(QMainWindow):
                         )
                         and cell.value.startswith("=")
                     ):
-    
                         if (
                             cell.calculated_value
                             is not None
                         ):
-    
                             display_value = (
                                 cell.calculated_value
                             )
-    
                             item.setText(
                                 self.format_display_value(
                                     display_value,
                                     cell.format.number_format
                                 )
                             )
-    
                         else:
-    
                             item.setText("")
-    
                     else:
-    
                         display_value = cell.value
-    
                         item.setText(
                             self.format_display_value(
                                 display_value,
                                 cell.format.number_format
                             )
                         )
-    
                     self.apply_cell_format(
                         cell,
                         item
                     )
-    
         current = view.currentItem()
-    
         if current is not None:
-    
             self.handle_cell_selected(
                 current.row(),
                 current.column(),
                 -1,
                 -1
             )
-        # ==============================================
-        # Apply merged cell spans
-        # ==============================================
-    
+
+        # APPLY MERGED CELLS SPANS 
         for merge_range in sheet.merged_ranges:
-    
             start_reference = merge_range[0]
             end_reference = merge_range[1]
-    
             start_column, start_row = (
                 sheet.split_reference(
                     start_reference
                 )
             )
-    
             end_column, end_row = (
                 sheet.split_reference(
                     end_reference
                 )
             )
-    
             start_column_index = (
                 sheet.column_number(
                     start_column
                 ) - 1
             )
-    
             end_column_index = (
                 sheet.column_number(
                     end_column
                 ) - 1
             )
-    
             start_row_index = start_row - 1
             end_row_index = end_row - 1
-    
             row_span = (
                 end_row_index
                 - start_row_index
                 + 1
             )
-    
             column_span = (
                 end_column_index
                 - start_column_index
                 + 1
             )
-    
             view.setSpan(
                 start_row_index,
                 start_column_index,
@@ -762,70 +626,53 @@ class MainWindow(QMainWindow):
             )
             
     def handle_copy_requested(self):
-
         index = self.sheet_tabs.currentIndex()
         view = self.views[index]
         sheet = self.workbook.sheets[index]
-
         ranges = view.selectedRanges()
-
         if not ranges:
             return
-
         selected_range = ranges[0]
-
         start_reference = (
             f"{chr(65 + selected_range.leftColumn())}"
             f"{selected_range.topRow() + 1}"
         )
-
         end_reference = (
             f"{chr(65 + selected_range.rightColumn())}"
             f"{selected_range.bottomRow() + 1}"
         )
-
         self.clipboard.copy(
             sheet,
             start_reference,
             end_reference
         )
-
         self.status_label.setText(
             f"Copied {start_reference}:{end_reference}"
         )
         
     def handle_paste_requested(self):
-
         index = self.sheet_tabs.currentIndex()
         view = self.views[index]
         sheet = self.workbook.sheets[index]
-
         row = view.currentRow()
         column = view.currentColumn()
-
         if row < 0 or column < 0:
             return
-
         if not self.clipboard.cells:
             return
-
         destination_reference = (
             f"{chr(65 + column)}"
             f"{row + 1}"
         )
-
         command = PasteCellsCommand(
             self.clipboard,
             sheet,
             destination_reference
         )
-
         self.history.execute(
             command
         )
-
         self.refresh_current_view()
-
         self.status_label.setText(
             f"Pasted at {destination_reference}"
         )
@@ -834,35 +681,27 @@ class MainWindow(QMainWindow):
         index = self.sheet_tabs.currentIndex()
         view = self.views[index]
         sheet = self.workbook.sheets[index]
-    
         ranges = view.selectedRanges()
-    
         if not ranges:
             return
-    
         selected_range = ranges[0]
-    
         start_row = selected_range.topRow()
         end_row = selected_range.bottomRow()
         start_column = selected_range.leftColumn()
         end_column = selected_range.rightColumn()
-    
         start_reference = (
             f"{chr(65 + start_column)}"
             f"{start_row + 1}"
         )
-    
         end_reference = (
             f"{chr(65 + end_column)}"
             f"{end_row + 1}"
         )
-    
         self.clipboard.copy(
             sheet,
             start_reference,
             end_reference
         )
-    
         self.status_label.setText(
             f"Copied {start_reference}:{end_reference}"
         )
@@ -871,171 +710,126 @@ class MainWindow(QMainWindow):
         index = self.sheet_tabs.currentIndex()
         view = self.views[index]
         sheet = self.workbook.sheets[index]
-    
         ranges = view.selectedRanges()
-    
         if not ranges:
             return
-    
         selected_range = ranges[0]
-    
         start_row = selected_range.topRow()
         end_row = selected_range.bottomRow()
         start_column = selected_range.leftColumn()
         end_column = selected_range.rightColumn()
-    
         start_reference = (
             f"{chr(65 + start_column)}"
             f"{start_row + 1}"
         )
-    
         end_reference = (
             f"{chr(65 + end_column)}"
             f"{end_row + 1}"
         )
-    
-        # Store the selected cells in the clipboard.
+        # STORE THE SELECTED CELLS IN THE CLIPBOARD
         self.clipboard.cut(
             sheet,
             start_reference,
             end_reference
-        )
-    
+        )    
         self.status_label.setText(
             f"Cut {start_reference}:{end_reference}"
         )
-    
     
     def handle_paste(self):
         index = self.sheet_tabs.currentIndex()
         view = self.views[index]
         sheet = self.workbook.sheets[index]
-    
         row = view.currentRow()
         column = view.currentColumn()
-    
         if row < 0 or column < 0:
             return
-    
         destination_reference = (
             f"{chr(65 + column)}"
             f"{row + 1}"
-        )
-    
+        )    
         if not self.clipboard.cells:
             self.status_label.setText(
                 "Clipboard is empty"
             )
             return
-    
-        from commands.paste_cells import PasteCellsCommand
-    
+        from commands.paste_cells import PasteCellsCommand    
         command = PasteCellsCommand(
             self.clipboard,
             sheet,
             destination_reference
         )
-    
         self.history.execute(command)
-    
         self.workbook.recalculation_manager.recalculate_from(
             destination_reference,
             sheet=sheet
         )
-    
         self.refresh_current_view()
-    
         self.status_label.setText(
             f"Pasted at {destination_reference}"
         )
             
     def handle_delete_requested(self, references):
-
         index = self.sheet_tabs.currentIndex()
         #view = self.views[index]
         sheet = self.workbook.sheets[index]
-
         if not references:
             return
-
         from commands.delete import DeleteCellsCommand
-
         command = DeleteCellsCommand(
             sheet,
             references
         )
-
         self.history.execute(command)
-
         for reference in references:
             self.workbook.recalculation_manager.recalculate_from(
                 reference,
                 sheet=sheet
             )
-
         self.refresh_current_view()
-
         self.formula_bar.clear()
-
         self.status_label.setText(
             f"{len(references)} cell(s) cleared"
         )
         
     def get_selected_references(self):
-    
         index = self.sheet_tabs.currentIndex()
         view = self.views[index]
-    
         ranges = view.selectedRanges()
-    
         if not ranges:
             row = view.currentRow()
             column = view.currentColumn()
-    
             if row < 0 or column < 0:
                 return []
-    
             return [
                 f"{chr(65 + column)}{row + 1}"
             ]
-    
         selected_range = ranges[0]
-    
         references = []
-    
         for row in range(
             selected_range.topRow(),
             selected_range.bottomRow() + 1
         ):
-    
             for column in range(
                 selected_range.leftColumn(),
                 selected_range.rightColumn() + 1
             ):
-    
                 references.append(
                     f"{chr(65 + column)}{row + 1}"
                 )
-    
         return references
     
-    
-    def handle_bold(self, checked):
-    
+    def handle_bold(self, checked):    
         self.apply_formatting(
             bold=checked
         )
     
-    
     def handle_italic(self, checked):
-    
         self.apply_formatting(
             italic=checked
         )
     
-    
     def handle_underline(self, checked):
-    
         self.apply_formatting(
             underline=checked
         )
@@ -1044,43 +838,34 @@ class MainWindow(QMainWindow):
         self,
         alignment
     ):
-    
         alignment_map = {
             "Left": "left",
             "Center": "center",
             "Right": "right",
         }
-    
         value = alignment_map.get(
             alignment
         )
-    
         if value is None:
             return
-    
         self.apply_formatting(
             horizontal_alignment=value
-        )
-    
+        )    
     
     def handle_vertical_alignment(
         self,
         alignment
     ):
-    
         alignment_map = {
             "Top": "top",
             "Center": "center",
             "Bottom": "bottom",
         }
-    
         value = alignment_map.get(
             alignment
         )
-    
         if value is None:
             return
-    
         self.apply_formatting(
             vertical_alignment=value
         )
@@ -1088,77 +873,58 @@ class MainWindow(QMainWindow):
     def handle_merge_cells(self):
         index = self.sheet_tabs.currentIndex()
         sheet = self.workbook.sheets[index]
-    
         references = self.get_selected_references()
-    
         if not references:
             return
-    
         coordinates = []
-    
         for reference in references:
-    
             column, row = sheet.split_reference(
                 reference
             )
-    
             coordinates.append(
                 (
                     row,
                     sheet.column_number(column)
                 )
             )
-    
         start_row = min(
             coordinate[0]
             for coordinate in coordinates
         )
-    
         end_row = max(
             coordinate[0]
             for coordinate in coordinates
         )
-    
         start_column = min(
             coordinate[1]
             for coordinate in coordinates
         )
-    
         end_column = max(
             coordinate[1]
             for coordinate in coordinates
         )
-    
         start_reference = (
             f"{sheet.column_name(start_column)}"
             f"{start_row}"
         )
-    
         end_reference = (
             f"{sheet.column_name(end_column)}"
             f"{end_row}"
         )
-    
         command = MergeCellsCommand(
             sheet,
             start_reference,
             end_reference
         )
-    
         try:
-    
             self.history.execute(
                 command
             )
-    
             self.refresh_current_view()
-    
             self.status_label.setText(
                 f"Merged {start_reference}:{end_reference}"
             )
-    
         except ValueError as error:
-    
             self.status_label.setText(
                 str(error)
             )
@@ -1166,54 +932,37 @@ class MainWindow(QMainWindow):
     def handle_unmerge_cells(self):
         index = self.sheet_tabs.currentIndex()
         sheet = self.workbook.sheets[index]
-    
         references = self.get_selected_references()
-    
         if not references:
             return
-    
         merge_range = None
-    
         for reference in references:
-    
             merge_range = sheet.get_merge_range(
                 reference
             )
-    
             if merge_range is not None:
                 break
-    
-        if merge_range is None:
-    
+        if merge_range is None:    
             self.status_label.setText(
                 "Selected cells are not merged"
             )
-    
             return
-    
         start_reference = merge_range[0]
-        end_reference = merge_range[1]
-    
+        end_reference = merge_range[1]    
         command = UnmergeCellsCommand(
             sheet,
             start_reference,
             end_reference
         )
-    
         try:
-    
             self.history.execute(
                 command
             )
-    
             self.refresh_current_view()
-    
             self.status_label.setText(
                 f"Unmerged {start_reference}:{end_reference}"
             )
-    
         except ValueError as error:
-    
             self.status_label.setText(
                 str(error)
             )
@@ -1227,18 +976,14 @@ class MainWindow(QMainWindow):
             "Percentage": "percentage",
             "Date": "date",
         }
-
         selected_format = (
             self.toolbar.number_format_combo.currentText()
         )
-
         number_format = format_map.get(
             selected_format
         )
-
         if number_format is None:
             return
-
         self.apply_formatting(
             number_format=number_format
         )
@@ -1248,12 +993,9 @@ class MainWindow(QMainWindow):
         cell,
         item
     ):
-
         if cell is None or item is None:
             return
-
         cell_format = cell.format
-
         font = item.font()
         font.setFamily(cell_format.font_family)
         font.setPointSize(
@@ -1263,19 +1005,15 @@ class MainWindow(QMainWindow):
         font.setItalic(cell_format.italic)
         font.setUnderline(cell_format.underline)
         item.setFont(font)
-
         item.setForeground(
             QColor(cell_format.text_color)
         )
-
         item.setBackground(
             QColor(cell_format.background_color)
         )
-
         horizontal_alignment = (
             cell_format.horizontal_alignment
         )
-
         if horizontal_alignment == "left":
             horizontal_flag = (
                 Qt.AlignmentFlag.AlignLeft
@@ -1288,11 +1026,9 @@ class MainWindow(QMainWindow):
             horizontal_flag = (
                 Qt.AlignmentFlag.AlignRight
             )
-
         vertical_alignment = (
             cell_format.vertical_alignment
         )
-
         if vertical_alignment == "top":
             vertical_flag = (
                 Qt.AlignmentFlag.AlignTop
@@ -1305,11 +1041,9 @@ class MainWindow(QMainWindow):
             vertical_flag = (
                 Qt.AlignmentFlag.AlignBottom
             )
-
         item.setTextAlignment(
             horizontal_flag | vertical_flag
         )
-
         item.setData(
             Qt.ItemDataRole.UserRole + 1,
             {
@@ -1322,7 +1056,6 @@ class MainWindow(QMainWindow):
     def handle_font_family(self, family):
         if not family:
             return
-    
         self.apply_formatting(
             font_family=family
         )
@@ -1330,12 +1063,10 @@ class MainWindow(QMainWindow):
     def handle_font_size(self, size):
         if not size:
             return
-    
         try:
             size = float(size)
         except ValueError:
-            return
-    
+            return    
         self.apply_formatting(
             font_size=size
         )
@@ -1344,78 +1075,59 @@ class MainWindow(QMainWindow):
         color = QColorDialog.getColor(
             parent=self
         )
-    
         if not color.isValid():
             return
-    
         self.apply_formatting(
             text_color=color.name().upper()
         )
         
-    def handle_background_color(self):
-    
+    def handle_background_color(self):    
         color = QColorDialog.getColor(
             parent=self
         )
-    
         if not color.isValid():
             return
-    
         self.apply_formatting(
             background_color=color.name().upper()
         )
         
-    def handle_border_format(self):
-    
+    def handle_border_format(self):    
         side_map = {
             "Top": "top",
             "Bottom": "bottom",
             "Left": "left",
             "Right": "right",
         }
-    
         style_map = {
             "Solid": "solid",
             "Dashed": "dashed",
             "Dotted": "dotted",
             "Double": "double",
         }
-    
         selected_side = (
             self.toolbar.border_side_combo.currentText()
         )
-    
         if selected_side == "None":
             return
-    
         border_side = side_map.get(
             selected_side
         )
-    
         if border_side is None:
             return
-    
         selected_style = (
             self.toolbar.border_style_combo.currentText()
-        )
-    
+        )    
         border_style = style_map.get(
             selected_style
         )
-    
         if border_style is None:
             return
-    
-        try:
-    
+        try:    
             border_width = int(
                 self.toolbar.border_width_combo.currentText()
             )
-    
         except ValueError:
-    
             return
-    
         self.apply_formatting(
             border_side=border_side,
             border_style=border_style,
@@ -1440,15 +1152,11 @@ class MainWindow(QMainWindow):
         border_color="#000000",
         remove_border=False
     ):
-    
         index = self.sheet_tabs.currentIndex()
         sheet = self.workbook.sheets[index]
-    
         references = self.get_selected_references()
-    
         if not references:
             return
-    
         command = FormatCellsCommand(
             sheet,
             references,
@@ -1467,12 +1175,9 @@ class MainWindow(QMainWindow):
             border_width=border_width,
             border_color=border_color,
             remove_border=remove_border
-        )
-    
+        )    
         self.history.execute(command)
-    
         self.refresh_current_view()
-    
         self.status_label.setText(
             f"Formatted {len(references)} cell(s)"
         )

@@ -1,5 +1,4 @@
 class History:
-
     def __init__(self):
         self.undo_stack = []
         self.redo_stack = []
@@ -12,21 +11,17 @@ class History:
     def undo(self):
         if not self.undo_stack:
             return None
-
         command = self.undo_stack.pop()
         command.undo()
         self.redo_stack.append(command)
-
         return command
 
     def redo(self):
         if not self.redo_stack:
             return None
-
         command = self.redo_stack.pop()
         command.execute()
         self.undo_stack.append(command)
-
         return command
 
     def can_undo(self):

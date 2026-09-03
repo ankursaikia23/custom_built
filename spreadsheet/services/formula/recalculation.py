@@ -9,9 +9,7 @@ class RecalculationManager:
     ):
         self.sheet = sheet
         self.workbook = workbook
-
         self.graph = DependencyGraph()
-
         self.evaluator = Evaluator(
             sheet=sheet,
             workbook=workbook,
@@ -31,7 +29,6 @@ class RecalculationManager:
                 set()
             )
             return
-
         self.graph.set_formula_dependencies(
             cell,
             formula
@@ -51,30 +48,22 @@ class RecalculationManager:
     def has_circular_dependency(self, cell):
         affected = set()
         queue = [cell]
-
         while queue:
             current = queue.pop(0)
-
             for dependent in self.graph.get_dependents(
                 current
             ):
                 if dependent == cell:
                     return True
-
                 if dependent not in affected:
                     affected.add(dependent)
                     queue.append(dependent)
-
         return False
 
-    # ==================================================
-    # Reference resolution
-    # ==================================================
-
+    # REFERENCE RESOLUTION
     def _get_target_cell(self, reference):
         target_sheet = None
         cell_reference = reference
-
         if "!" in reference:
             sheet_name, cell_reference = (
                 reference.rsplit(
@@ -82,40 +71,30 @@ class RecalculationManager:
                     1
                 )
             )
-
             sheet_name = (
                 sheet_name
                 .strip()
                 .strip("'")
             )
-
             if self.workbook is None:
                 return None, None
-
             target_sheet = (
                 self.workbook.get_sheet(
                     sheet_name
                 )
             )
-
             if target_sheet is None:
                 return None, None
-
         else:
             target_sheet = self.sheet
-
         if target_sheet is None:
             return None, None
-
         return (
             target_sheet,
             cell_reference
         )
 
-    # ==================================================
-    # Recalculation
-    # ==================================================
-
+    # RECALCULATION
     def recalculate_from(
         self,
         reference,
@@ -123,12 +102,10 @@ class RecalculationManager:
     ):
         if sheet is None:
             sheet = self.sheet
-
         if sheet is None:
             raise ValueError(
                 "Sheet is required for recalculation"
             )
-
         if "!" in reference:
             qualified_reference = reference
         else:
@@ -136,9 +113,9 @@ class RecalculationManager:
                 f"{sheet.name}!{reference}"
             )
 
-        # Recalculate starting from the edited cell.
-        # get_recalculation_order() will walk through
-        # all affected dependents in dependency order.
+        # RECALCULATE STARTING FROM THE EDITED CELL
+        # get_recalculation_order() WILL WALK THROUGH
+        # ALL AFFECTED DEPENDENTS IN DEPENDENCY ORDER
         return self.recalculate(
             qualified_reference
         )
@@ -147,71 +124,54 @@ class RecalculationManager:
         order = self.get_recalculation_order(
             cell
         )
-    
-        # The edited cell itself must also be recalculated.
-        recalculation_order = [cell]
-    
+        
+        # THE EDITED CELL ITSELF MUST ALSO BE RECALCULATED
+        recalculation_order = [cell]    
         for reference in order:
             if reference != cell:
                 recalculation_order.append(
                     reference
                 )
-    
         results = {}
-    
         for reference in recalculation_order:
-    
             target_sheet, cell_reference = (
                 self._get_target_cell(
                     reference
                 )
             )
-    
             if target_sheet is None:
                 results[reference] = "#REF!"
                 continue
-    
             target_cell = (
                 target_sheet.get_cell(
                     cell_reference
                 )
             )
-    
             if target_cell is None:
                 continue
-    
             formula = target_cell.value
-    
             if (
                 not isinstance(formula, str)
                 or not formula.startswith("=")
             ):
                 continue
-    
             try:
                 evaluator = Evaluator(
                     sheet=target_sheet,
                     workbook=self.workbook
                 )
-    
                 result = evaluator.evaluate_cell(
                     cell_reference
                 )
-    
             except ZeroDivisionError:
                 result = "#DIV/0!"
-    
             except (
                 TypeError,
                 ValueError
             ):
                 result = "#VALUE!"
-    
             except Exception:
                 result = "#VALUE!"
-    
             target_cell.calculated_value = result
-    
             results[reference] = result
-    
         return results
