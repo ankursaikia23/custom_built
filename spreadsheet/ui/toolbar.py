@@ -96,6 +96,21 @@ class SpreadsheetToolbar(QToolBar):
         ])
         self.number_format_combo.setCurrentText("General")
         self.addWidget(self.number_format_combo)
+        self.merge_cells_action = QAction(
+            "Merge Cells",
+            self
+        )
+        self.addAction(
+            self.merge_cells_action
+        )
+        
+        self.unmerge_cells_action = QAction(
+            "Unmerge Cells",
+            self
+        )
+        self.addAction(
+            self.unmerge_cells_action
+        )
         self.border_side_combo = QComboBox()
         self.border_side_combo.addItems([
             "None",

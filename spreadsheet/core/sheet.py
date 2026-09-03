@@ -154,8 +154,81 @@ class Sheet:
         new_range=(normalized_start,normalized_end)
         if new_range in self.merged_ranges:
             return
-        if self.range_overlaps_merge(new_range):
-            raise ValueError("Merge range overlaps an existing merged range")
+        
+        overlapping_ranges = []
+        
+        for existing_range in self.merged_ranges:
+        
+            if self.range_overlaps_merge(
+                (
+                    existing_range[0],
+                    existing_range[1]
+                )
+            ) and self.range_overlaps_merge(
+                new_range
+            ):
+        
+                overlapping_ranges.append(
+                    existing_range
+                )
+        
+        if overlapping_ranges:
+        
+            ranges = overlapping_ranges + [new_range]
+        
+            rows = []
+            columns = []
+        
+            for merge_range in ranges:
+        
+                merge_start_column, merge_start_row = (
+                    self.split_reference(
+                        merge_range[0]
+                    )
+                )
+        
+                merge_end_column, merge_end_row = (
+                    self.split_reference(
+                        merge_range[1]
+                    )
+                )
+        
+                rows.extend([
+                    merge_start_row,
+                    merge_end_row
+                ])
+        
+                columns.extend([
+                    self.column_number(
+                        merge_start_column
+                    ),
+                    self.column_number(
+                        merge_end_column
+                    )
+                ])
+        
+            start_row = min(rows)
+            end_row = max(rows)
+        
+            start_column = min(columns)
+            end_column = max(columns)
+        
+            combined_range = (
+                f"{self.column_name(start_column)}{start_row}",
+                f"{self.column_name(end_column)}{end_row}"
+            )
+        
+            for merge_range in overlapping_ranges:
+                self.merged_ranges.remove(
+                    merge_range
+                )
+        
+            self.merged_ranges.append(
+                combined_range
+            )
+        
+            return
+        
         self.merged_ranges.append(new_range)
 
     def unmerge_cells(self,start_reference,end_reference):

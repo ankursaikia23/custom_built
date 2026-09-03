@@ -113,6 +113,13 @@ class MainWindow(QMainWindow):
         self.toolbar.number_format_combo.currentTextChanged.connect(
             self.handle_number_format
         )
+        self.toolbar.merge_cells_action.triggered.connect(
+            self.handle_merge_cells
+        )
+        
+        self.toolbar.unmerge_cells_action.triggered.connect(
+            self.handle_unmerge_cells
+        )
         self.toolbar.border_side_combo.currentTextChanged.connect(
             self.handle_border_format
         )
@@ -596,6 +603,7 @@ class MainWindow(QMainWindow):
     
         view = self.views[index]
         sheet = self.workbook.sheets[index]
+        view.clearSpans()
     
         with QSignalBlocker(view):
     
@@ -693,6 +701,60 @@ class MainWindow(QMainWindow):
                 current.column(),
                 -1,
                 -1
+            )
+        # ==============================================
+        # Apply merged cell spans
+        # ==============================================
+    
+        for merge_range in sheet.merged_ranges:
+    
+            start_reference = merge_range[0]
+            end_reference = merge_range[1]
+    
+            start_column, start_row = (
+                sheet.split_reference(
+                    start_reference
+                )
+            )
+    
+            end_column, end_row = (
+                sheet.split_reference(
+                    end_reference
+                )
+            )
+    
+            start_column_index = (
+                sheet.column_number(
+                    start_column
+                ) - 1
+            )
+    
+            end_column_index = (
+                sheet.column_number(
+                    end_column
+                ) - 1
+            )
+    
+            start_row_index = start_row - 1
+            end_row_index = end_row - 1
+    
+            row_span = (
+                end_row_index
+                - start_row_index
+                + 1
+            )
+    
+            column_span = (
+                end_column_index
+                - start_column_index
+                + 1
+            )
+    
+            view.setSpan(
+                start_row_index,
+                start_column_index,
+                row_span,
+                column_span
             )
             
     def handle_copy_requested(self):
@@ -1017,6 +1079,112 @@ class MainWindow(QMainWindow):
     
         self.apply_formatting(
             vertical_alignment=value
+        )
+        
+    def handle_merge_cells(self):
+        index = self.sheet_tabs.currentIndex()
+        sheet = self.workbook.sheets[index]
+    
+        references = self.get_selected_references()
+    
+        if not references:
+            return
+    
+        coordinates = []
+    
+        for reference in references:
+            column, row = sheet.split_reference(reference)
+    
+            coordinates.append(
+                (
+                    row,
+                    sheet.column_number(column)
+                )
+            )
+    
+        start_row = min(
+            coordinate[0]
+            for coordinate in coordinates
+        )
+    
+        end_row = max(
+            coordinate[0]
+            for coordinate in coordinates
+        )
+    
+        start_column = min(
+            coordinate[1]
+            for coordinate in coordinates
+        )
+    
+        end_column = max(
+            coordinate[1]
+            for coordinate in coordinates
+        )
+    
+        start_reference = (
+            f"{sheet.column_name(start_column)}"
+            f"{start_row}"
+        )
+    
+        end_reference = (
+            f"{sheet.column_name(end_column)}"
+            f"{end_row}"
+        )
+    
+        try:
+            sheet.merge_cells(
+                start_reference,
+                end_reference
+            )
+        
+            self.refresh_current_view()
+        
+            self.status_label.setText(
+                f"Merged {start_reference}:{end_reference}"
+            )
+        
+        except ValueError as error:
+        
+            self.status_label.setText(
+                str(error)
+            )
+        
+    def handle_unmerge_cells(self):
+        index = self.sheet_tabs.currentIndex()
+        sheet = self.workbook.sheets[index]
+    
+        references = self.get_selected_references()
+    
+        if not references:
+            return
+    
+        merge_range = None
+    
+        for reference in references:
+            merge_range = sheet.get_merge_range(reference)
+    
+            if merge_range is not None:
+                break
+    
+        if merge_range is None:
+            self.status_label.setText(
+                "Selected cells are not merged"
+            )
+            return
+    
+        start_reference = merge_range[0]
+        end_reference = merge_range[1]
+    
+        sheet.unmerge_cells(
+            start_reference,
+            end_reference
+        )
+        
+        self.refresh_current_view()
+        
+        self.status_label.setText(
+            f"Unmerged {start_reference}:{end_reference}"
         )
         
     def handle_number_format(self):
