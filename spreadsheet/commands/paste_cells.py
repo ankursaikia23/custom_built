@@ -20,6 +20,8 @@ class PasteCellsCommand(Command):
         self.clipboard_cells = {}
         self.clipboard_merged_ranges = []
         self.pasted_merged_ranges = []
+        self.source_merged_ranges = []
+        self.old_merged_ranges = []
         self.source_start = None
         self.source_end = None
         self.initialized = False
@@ -36,6 +38,50 @@ class PasteCellsCommand(Command):
         )
         self.source_start = self.clipboard.source_start
         self.source_end = self.clipboard.source_end
+        
+        # CAPTURE SOURCE MERGED RANGES FOR CUT        
+        self.source_merged_ranges = []
+        if self.cut_mode:        
+            for (
+                start_column_offset,
+                start_row_offset,
+                end_column_offset,
+                end_row_offset
+            ) in self.clipboard_merged_ranges:
+                source_start_column_number = (
+                    self.source_start[0]
+                    + start_column_offset
+                )
+                source_start_row = (
+                    self.source_start[1]
+                    + start_row_offset
+                )
+                source_end_column_number = (
+                    self.source_start[0]
+                    + end_column_offset
+                )
+                source_end_row = (
+                    self.source_start[1]
+                    + end_row_offset
+                )
+                source_start_reference = (
+                    self.sheet.column_name(
+                        source_start_column_number
+                    )
+                    + str(source_start_row)
+                )
+                source_end_reference = (
+                    self.sheet.column_name(
+                        source_end_column_number
+                    )
+                    + str(source_end_row)
+                )
+                self.source_merged_ranges.append(
+                    (
+                        source_start_reference,
+                        source_end_reference
+                    )
+                )
 
         # CAPTURE SOURCE CELLS FOR CUT
         if self.cut_mode:
@@ -127,7 +173,13 @@ class PasteCellsCommand(Command):
                 self._register_formula(
                     reference,
                     copied_cell
-                )
+                )        
+            if self.cut_mode:
+                for start_reference, end_reference in self.source_merged_ranges:
+                    if (start_reference, end_reference) in self.sheet.merged_ranges:
+                        self.sheet.merged_ranges.remove(
+                            (start_reference, end_reference)
+                        )
                 
             # RESTORE PASTED MERGED RANGES        
             for (
@@ -219,6 +271,23 @@ class PasteCellsCommand(Command):
                 self.sheet.delete_cell(
                     reference
                 )
+            # REMOVE SOURCE MERGED RANGES            
+            for (
+                start_reference,
+                end_reference
+            ) in self.source_merged_ranges:
+        
+                if (
+                    start_reference,
+                    end_reference
+                ) in self.sheet.merged_ranges:
+        
+                    self.sheet.merged_ranges.remove(
+                        (
+                            start_reference,
+                            end_reference
+                        )
+                    )
 
             # RECALCULATE FORMULAS AFFECTED BY CUT        
             if self.sheet.workbook is not None:
@@ -420,17 +489,32 @@ class PasteCellsCommand(Command):
                         reference,
                         restored_cell
                     )
-                    
-                    # RECALCULATE FORMULAS AFFECTED BY UNDO                
-                    if self.sheet.workbook is not None:
-                        affected_references = set(
-                            self.source_cells.keys()
+            
+            # RESTORE SOURCE MERGED RANGES FOR CUT        
+            if self.cut_mode:
+                for (
+                    start_reference,
+                    end_reference
+                ) in self.source_merged_ranges:
+                    if (
+                        start_reference,
+                        end_reference
+                    ) not in self.sheet.merged_ranges:
+                        self.sheet.merge_cells(
+                            start_reference,
+                            end_reference
                         )
-                        affected_references.update(
-                            self.pasted_references
-                        )
-                        for reference in affected_references:
-                            self.sheet.workbook.recalculation_manager.recalculate_from(
-                                reference,
-                                sheet=self.sheet
-                            )
+        
+            # RECALCULATE FORMULAS AFFECTED BY UNDO        
+            if self.sheet.workbook is not None:
+                affected_references = set(
+                    self.source_cells.keys()
+                )        
+                affected_references.update(
+                    self.pasted_references
+                )
+                for reference in affected_references:
+                    self.sheet.workbook.recalculation_manager.recalculate_from(
+                        reference,
+                        sheet=self.sheet
+                    )

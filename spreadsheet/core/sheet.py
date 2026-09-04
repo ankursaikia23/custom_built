@@ -129,75 +129,84 @@ class Sheet:
         column=self.column_name(self.column_number(column))
         return column in self.hidden_columns
 
-    def merge_cells(self,start_reference,end_reference):
-        start_column,start_row=self.split_reference(start_reference)
-        end_column,end_row=self.split_reference(end_reference)
-        start_column_number=self.column_number(start_column)
-        end_column_number=self.column_number(end_column)
-        if start_row>end_row or start_column_number>end_column_number:
+    def merge_cells(self, start_reference, end_reference):
+        start_column, start_row = self.split_reference(start_reference)
+        end_column, end_row = self.split_reference(end_reference)
+        start_column_number = self.column_number(start_column)
+        end_column_number = self.column_number(end_column)
+        if start_row > end_row or start_column_number > end_column_number:
             raise ValueError("Invalid merge range")
-        normalized_start=f"{start_column}{start_row}"
-        normalized_end=f"{end_column}{end_row}"
-        new_range=(normalized_start,normalized_end)
+        normalized_start = f"{start_column}{start_row}"
+        normalized_end = f"{end_column}{end_row}"
+        new_range = (normalized_start, normalized_end)
         if new_range in self.merged_ranges:
             return
-        overlapping_ranges = []        
-        for existing_range in self.merged_ranges:
-            if self.range_overlaps_merge(
-                (
-                    existing_range[0],
-                    existing_range[1]
+
+        # START WITH THE REQUESTED RANGE
+        combined_start_row = start_row
+        combined_end_row = end_row
+        combined_start_column = start_column_number
+        combined_end_column = end_column_number
+        overlapping_ranges = []
+
+        # KEEP CHECKING BECAUSE COMBINING ONE RANAGE MAY CAUSE THE
+        # COMBINED RANGE TO OVERLAP ANOTHER RANGE
+        changed = True
+        while changed:
+            changed = False
+            for existing_range in self.merged_ranges:
+                if existing_range in overlapping_ranges:
+                    continue
+                existing_start_column, existing_start_row = (
+                    self.split_reference(existing_range[0])
                 )
-            ) and self.range_overlaps_merge(
-                new_range
-            ):
-                overlapping_ranges.append(
-                    existing_range
+                existing_end_column, existing_end_row = (
+                    self.split_reference(existing_range[1])
                 )
-        if overlapping_ranges:
-            ranges = overlapping_ranges + [new_range]
-            rows = []
-            columns = []
-            for merge_range in ranges:
-                merge_start_column, merge_start_row = (
-                    self.split_reference(
-                        merge_range[0]
+                existing_start_column_number = (
+                    self.column_number(existing_start_column)
+                )
+                existing_end_column_number = (
+                    self.column_number(existing_end_column)
+                )
+                rows_overlap = (
+                    combined_start_row <= existing_end_row
+                    and combined_end_row >= existing_start_row
+                )
+                columns_overlap = (
+                    combined_start_column <= existing_end_column_number
+                    and combined_end_column >= existing_start_column_number
+                )
+                if rows_overlap and columns_overlap:
+                    overlapping_ranges.append(existing_range)
+                    combined_start_row = min(
+                        combined_start_row,
+                        existing_start_row
                     )
-                )
-                merge_end_column, merge_end_row = (
-                    self.split_reference(
-                        merge_range[1]
+                    combined_end_row = max(
+                        combined_end_row,
+                        existing_end_row
                     )
-                )
-                rows.extend([
-                    merge_start_row,
-                    merge_end_row
-                ])
-                columns.extend([
-                    self.column_number(
-                        merge_start_column
-                    ),
-                    self.column_number(
-                        merge_end_column
+                    combined_start_column = min(
+                        combined_start_column,
+                        existing_start_column_number
                     )
-                ])
-            start_row = min(rows)
-            end_row = max(rows)
-            start_column = min(columns)
-            end_column = max(columns)
-            combined_range = (
-                f"{self.column_name(start_column)}{start_row}",
-                f"{self.column_name(end_column)}{end_row}"
-            )
-            for merge_range in overlapping_ranges:
-                self.merged_ranges.remove(
-                    merge_range
-                )
-            self.merged_ranges.append(
-                combined_range
-            )
-            return
-        self.merged_ranges.append(new_range)
+                    combined_end_column = max(
+                        combined_end_column,
+                        existing_end_column_number
+                    )
+                    changed = True
+
+        # REMOVE THE OLD RANGES THAT WERE ACTUALLY OVERLAPPED
+        for merge_range in overlapping_ranges:
+            self.merged_ranges.remove(merge_range)
+
+        # ADD THE FINAL COMBINED RANGE
+        combined_range = (
+            f"{self.column_name(combined_start_column)}{combined_start_row}",
+            f"{self.column_name(combined_end_column)}{combined_end_row}"
+        )
+        self.merged_ranges.append(combined_range)
 
     def unmerge_cells(self,start_reference,end_reference):
         start_column,start_row=self.split_reference(start_reference)
