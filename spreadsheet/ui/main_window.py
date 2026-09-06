@@ -74,6 +74,10 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.status_label)
         self.toolbar.actions()[2].triggered.connect(self.undo)
         self.toolbar.actions()[3].triggered.connect(self.redo)
+        self.toolbar.insert_row_action.triggered.connect(self.handle_insert_row)
+        self.toolbar.delete_row_action.triggered.connect(self.handle_delete_row)
+        self.toolbar.insert_column_action.triggered.connect(self.handle_insert_column)
+        self.toolbar.delete_column_action.triggered.connect(self.handle_delete_column)
         self.toolbar.bold_action.triggered.connect(
             self.handle_bold
         )
@@ -500,6 +504,58 @@ class MainWindow(QMainWindow):
         if command is None:
             return
         self.refresh_current_view()
+        
+    def handle_insert_row(self):
+        view = self.sheet_tabs.currentWidget()
+        index = self.sheet_tabs.currentIndex()    
+        if view is None or index < 0:
+            return
+        row = view.currentRow()
+        if row < 0:
+            return
+        sheet = self.workbook.sheets[index]
+        sheet.insert_rows(row + 1, 1)    
+        self.refresh_current_view()
+        self.status_label.setText(f"Inserted row {row + 1}")
+    
+    def handle_delete_row(self):
+        view = self.sheet_tabs.currentWidget()
+        index = self.sheet_tabs.currentIndex()
+        if view is None or index < 0:
+            return
+        row = view.currentRow()
+        if row < 0:
+            return    
+        sheet = self.workbook.sheets[index]
+        sheet.delete_rows(row + 1, 1)
+        self.refresh_current_view()
+        self.status_label.setText(f"Deleted row {row + 1}")
+    
+    def handle_insert_column(self):
+        view = self.sheet_tabs.currentWidget()
+        index = self.sheet_tabs.currentIndex()
+        if view is None or index < 0:
+            return
+        column = view.currentColumn()
+        if column < 0:
+            return    
+        sheet = self.workbook.sheets[index]
+        sheet.insert_columns(column + 1, 1)
+        self.refresh_current_view()
+        self.status_label.setText(f"Inserted column {column + 1}")
+        
+    def handle_delete_column(self):
+        view = self.sheet_tabs.currentWidget()
+        index = self.sheet_tabs.currentIndex()
+        if view is None or index < 0:
+            return    
+        column = view.currentColumn()
+        if column < 0:
+            return
+        sheet = self.workbook.sheets[index]
+        sheet.delete_columns(column + 1, 1)
+        self.refresh_current_view()
+        self.status_label.setText(f"Deleted column {column + 1}")
     
     def refresh_current_view(self):
         index = (

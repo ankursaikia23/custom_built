@@ -11,6 +11,36 @@ class SpreadsheetToolbar(QToolBar):
         self.addAction(QAction("Save", self))
         self.addAction(QAction("Undo", self))
         self.addAction(QAction("Redo", self))
+
+        # ROW / COLUMN OPERATIONS
+        self.insert_row_action = QAction(
+            "Insert Row",
+            self
+        )
+        self.addAction(
+            self.insert_row_action
+        )
+        self.delete_row_action = QAction(
+            "Delete Row",
+            self
+        )
+        self.addAction(
+            self.delete_row_action
+        )
+        self.insert_column_action = QAction(
+            "Insert Column",
+            self
+        )
+        self.addAction(
+            self.insert_column_action
+        )
+        self.delete_column_action = QAction(
+            "Delete Column",
+            self
+        )
+        self.addAction(
+            self.delete_column_action
+        )
         self.bold_action = QAction("Bold", self)
         self.bold_action.setCheckable(True)
         self.addAction(self.bold_action)
@@ -64,7 +94,9 @@ class SpreadsheetToolbar(QToolBar):
             "Right",
         ])
         self.horizontal_alignment_combo.setCurrentText("Left")
-        self.addWidget(self.horizontal_alignment_combo)
+        self.addWidget(
+            self.horizontal_alignment_combo
+        )
         self.vertical_alignment_combo = QComboBox()
         self.vertical_alignment_combo.addItems([
             "Top",
@@ -72,7 +104,9 @@ class SpreadsheetToolbar(QToolBar):
             "Bottom",
         ])
         self.vertical_alignment_combo.setCurrentText("Center")
-        self.addWidget(self.vertical_alignment_combo)
+        self.addWidget(
+            self.vertical_alignment_combo
+        )
         self.number_format_combo = QComboBox()
         self.number_format_combo.addItems([
             "General",
@@ -83,7 +117,9 @@ class SpreadsheetToolbar(QToolBar):
             "Date",
         ])
         self.number_format_combo.setCurrentText("General")
-        self.addWidget(self.number_format_combo)
+        self.addWidget(
+            self.number_format_combo
+        )
         self.merge_cells_action = QAction(
             "Merge Cells",
             self
@@ -107,7 +143,9 @@ class SpreadsheetToolbar(QToolBar):
             "Right",
         ])
         self.border_side_combo.setCurrentText("None")
-        self.addWidget(self.border_side_combo)
+        self.addWidget(
+            self.border_side_combo
+        )
         self.border_style_combo = QComboBox()
         self.border_style_combo.addItems([
             "Solid",
@@ -116,7 +154,9 @@ class SpreadsheetToolbar(QToolBar):
             "Double",
         ])
         self.border_style_combo.setCurrentText("Solid")
-        self.addWidget(self.border_style_combo)
+        self.addWidget(
+            self.border_style_combo
+        )
         self.border_width_combo = QComboBox()
         self.border_width_combo.addItems([
             "1",
@@ -124,9 +164,13 @@ class SpreadsheetToolbar(QToolBar):
             "3",
         ])
         self.border_width_combo.setCurrentText("1")
-        self.addWidget(self.border_width_combo)
+        self.addWidget(
+            self.border_width_combo
+        )
         self.border_color_action = QAction(
             "Border Color",
             self
         )
-        self.addAction(self.border_color_action)
+        self.addAction(
+            self.border_color_action
+        )
